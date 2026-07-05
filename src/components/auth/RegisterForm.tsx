@@ -1,0 +1,127 @@
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, useNavigate } from 'react-router-dom';
+import { registerSchema, RegisterFormValues } from '../../lib/validations/auth.schema';
+import { supabase } from '../../lib/supabase/client';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Label } from '../ui/Label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/Card';
+
+export function RegisterForm() {
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+  });
+
+  const onSubmit = async (data: RegisterFormValues) => {
+    setError(null);
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          name: data.name,
+          company_name: data.company_name,
+          phone: data.phone,
+        },
+      },
+    });
+
+    if (signUpError) {
+      setError(signUpError.message);
+      return;
+    }
+
+    setSuccess(true);
+    // User needs to check email to confirm, then can login
+    // Depending on Supabase settings, auto-login might happen if email confirmation is disabled
+  };
+
+  if (success) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold text-green-500">Cadastro realizado!</CardTitle>
+          <CardDescription>
+            Verifique seu e-mail para confirmar a conta (se necessário), ou faça login.
+          </CardDescription>
+        </CardHeader>
+        <CardFooter>
+          <Button className="w-full" onClick={() => navigate('/login')}>
+            Ir para Login
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader className="space-y-2 text-center">
+        <CardTitle className="text-2xl font-bold tracking-tight">Criar Conta</CardTitle>
+        <CardDescription>Preencha os dados para criar sua conta no SolAmigo Propostas FV.</CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <CardContent className="space-y-4">
+          {error && (
+            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-md">
+              {error}
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="name">Nome Completo</Label>
+            <Input id="name" placeholder="Seu Nome" {...register('name')} />
+            {errors.name && <p className="text-sm text-red-600">{errors.name.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="company_name">Nome da Empresa</Label>
+            <Input id="company_name" placeholder="Sua Empresa Solar" {...register('company_name')} />
+            {errors.company_name && <p className="text-sm text-red-600">{errors.company_name.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">WhatsApp</Label>
+            <Input id="phone" placeholder="(11) 99999-9999" {...register('phone')} />
+            {errors.phone && <p className="text-sm text-red-600">{errors.phone.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">E-mail</Label>
+            <Input id="email" type="email" placeholder="seu@email.com" {...register('email')} />
+            {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input id="password" type="password" placeholder="******" {...register('password')} />
+              {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+              <Input id="confirmPassword" type="password" placeholder="******" {...register('confirmPassword')} />
+              {errors.confirmPassword && <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>}
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <Button type="submit" className="w-full" isLoading={isSubmitting}>
+            Criar Conta
+          </Button>
+          <div className="text-center text-sm text-slate-500">
+            Já tem uma conta?{' '}
+            <Link to="/login" className="text-brand-blue hover:underline">
+              Faça login
+            </Link>
+          </div>
+        </CardFooter>
+      </form>
+    </Card>
+  );
+}

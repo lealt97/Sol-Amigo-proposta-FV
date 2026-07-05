@@ -1,0 +1,88 @@
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useNavigate } from 'react-router-dom';
+import { resetPasswordSchema, ResetPasswordFormValues } from '../../lib/validations/auth.schema';
+import { supabase } from '../../lib/supabase/client';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Label } from '../ui/Label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/Card';
+
+export function ResetPasswordForm() {
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
+  });
+
+  const onSubmit = async (data: ResetPasswordFormValues) => {
+    setError(null);
+    
+    const { error } = await supabase.auth.updateUser({
+      password: data.password
+    });
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setSuccess(true);
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 2000);
+  };
+
+  if (success) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold text-green-500">Senha atualizada!</CardTitle>
+          <CardDescription>
+            Sua senha foi redefinida com sucesso. Redirecionando...
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader className="space-y-2 text-center">
+        <CardTitle className="text-2xl font-bold tracking-tight">Nova Senha</CardTitle>
+        <CardDescription>Digite a nova senha para sua conta.</CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <CardContent className="space-y-4">
+          {error && (
+            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-md">
+              {error}
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="password">Nova Senha</Label>
+            <Input id="password" type="password" placeholder="******" {...register('password')} />
+            {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
+            <Input id="confirmPassword" type="password" placeholder="******" {...register('confirmPassword')} />
+            {errors.confirmPassword && <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>}
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button type="submit" className="w-full" isLoading={isSubmitting}>
+            Atualizar Senha
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
+  );
+}

@@ -224,7 +224,7 @@ export function ClientDetails() {
                     </thead>
                     <tbody className="divide-y divide-brand-border">
                       {proposals.map(prop => (
-                        <tr key={prop.id} className="hover:bg-white transition-colors">
+                        <tr key={prop.id} className="hover:bg-brand-surface transition-colors">
                           <td className="px-4 py-3">
                             <p className="text-sm font-medium text-brand-dark">{prop.title || 'Sistema Solar'}</p>
                             <p className="text-xs text-slate-500">{formatDate(prop.created_at)} {prop.code && `- ${prop.code}`}</p>

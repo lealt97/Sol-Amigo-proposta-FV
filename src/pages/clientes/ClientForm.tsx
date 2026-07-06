@@ -190,7 +190,7 @@ export function ClientForm() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end gap-3 bg-white border-t border-brand-border rounded-b-xl py-4">
+          <CardFooter className="flex justify-end gap-3 bg-brand-surface border-t border-brand-border rounded-b-xl py-4">
             <Link to={isEditing ? `/clientes/${id}` : '/clientes'}>
               <Button type="button" variant="ghost">
                 Cancelar

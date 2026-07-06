@@ -105,7 +105,7 @@ export function ClientList() {
                 <th className="px-4 py-3 font-medium text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="text-sm bg-white">
+            <tbody className="text-sm bg-brand-surface">
               {isLoading ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8">

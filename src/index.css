@@ -1,12 +1,35 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-dark: #0E2337;
-  --color-brand-blue: #0076DD;
+  /* Brand colors */
+  --color-brand-dark: #F8FAFC; /* Light color for text readability on dark */
+  --color-brand-blue: #0076DD; /* Azul principal */
   --color-brand-blue-hover: #005BB5;
   --color-brand-light: #64B0F3;
   --color-brand-yellow: #FACB5C;
-  --color-brand-green: #B4BF8A;
-  --color-brand-gray: #F3F4F6;
-  --color-brand-border: #E5E7EB;
+  --color-brand-green: #B4BF8A; /* Verde sálvia */
+  
+  --color-brand-gray: #0E2337; /* Main Background (Azul marinho) */
+  --color-brand-surface: #142E46; /* Card/Sidebar background (slightly lighter than marinho) */
+  --color-brand-border: #1C3F5E; /* Dark theme borders */
+  
+  /* Override default tailwind slates/grays that might be used for text */
+  --color-slate-500: #94A3B8;
+  --color-gray-50: #193855;
+  --color-gray-100: #214364;
+}
+
+body {
+  background-color: var(--color-brand-gray);
+  color: var(--color-brand-dark);
+}
+@theme {
+  --color-gray-900: #F8FAFC;
+  --color-gray-800: #F1F5F9;
+  --color-gray-700: #E2E8F0;
+}
+@theme {
+  --color-gray-500: #94A3B8;
+  --color-gray-200: #2C527A;
+  --color-gray-300: #386A9E;
 }

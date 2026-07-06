@@ -29,10 +29,10 @@ export function Layout() {
 
   return (
     <div className="flex h-screen w-full bg-brand-gray text-brand-dark font-sans overflow-hidden">
-      <aside className="w-64 border-r border-brand-border bg-white flex flex-col shrink-0">
+      <aside className="w-64 border-r border-brand-border bg-brand-surface flex flex-col shrink-0">
         <div className="p-6">
           <div className="flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 bg-brand-blue rounded-lg flex items-center justify-center text-black font-bold">
+            <div className="w-8 h-8 bg-brand-blue rounded-lg flex items-center justify-center text-white font-bold">
               <Sun className="h-5 w-5" />
             </div>
             <h1 className="text-lg font-semibold tracking-tight text-brand-dark">
@@ -80,7 +80,7 @@ export function Layout() {
         </div>
       </aside>
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-brand-border flex items-center justify-between px-8 bg-white shrink-0">
+        <header className="h-16 border-b border-brand-border flex items-center justify-between px-8 bg-brand-surface shrink-0">
           <div className="flex items-center gap-4">
              <h2 className="text-sm font-medium text-brand-dark">{getPageTitle()}</h2>
              <div className="h-4 w-[1px] bg-gray-100"></div>

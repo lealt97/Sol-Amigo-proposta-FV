@@ -61,6 +61,7 @@ export const proposalService = {
       title: proposal.title || 'Nova Proposta',
       status: 'draft',
       consumption_source: proposal.consumption_source,
+      
       estimated_daily_consumption: formatNumber(proposal.estimated_daily_consumption),
       monthly_consumption_kwh: formatNumber(proposal.monthly_consumption_kwh),
       bill_amount: formatNumber(proposal.bill_amount),
@@ -128,6 +129,7 @@ export const proposalService = {
     if (proposal.client_id !== undefined) formattedData.client_id = proposal.client_id;
     if (proposal.title !== undefined) formattedData.title = proposal.title;
     if (proposal.consumption_source !== undefined) formattedData.consumption_source = proposal.consumption_source;
+    
     if (proposal.estimated_daily_consumption !== undefined) formattedData.estimated_daily_consumption = formatNumber(proposal.estimated_daily_consumption);
     if (proposal.monthly_consumption_kwh !== undefined) formattedData.monthly_consumption_kwh = formatNumber(proposal.monthly_consumption_kwh);
     if (proposal.bill_amount !== undefined) formattedData.bill_amount = formatNumber(proposal.bill_amount);

@@ -148,7 +148,7 @@ export function StepCosts() {
         </div>
       </div>
 
-      <div className="border border-brand-border rounded-lg bg-white overflow-hidden">
+      <div className="border border-brand-border rounded-lg bg-brand-surface overflow-hidden">
         <div className="bg-gray-50 border-b border-brand-border p-4 flex justify-between items-center">
           <h3 className="font-medium text-brand-dark">Resumo Financeiro</h3>
         </div>

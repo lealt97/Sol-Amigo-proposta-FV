@@ -7,9 +7,31 @@ export const profileService = {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    
+    if (!data) {
+      // Create an empty profile if one doesn't exist
+      const defaultProfile = {
+        id: userId,
+        name: '',
+        company_name: '',
+      };
+      
+      const { data: newData, error: insertError } = await supabase
+        .from('profiles')
+        .insert([defaultProfile])
+        .select()
+        .single();
+        
+      if (insertError) {
+        console.warn('Could not create default profile, returning empty object:', insertError);
+        return defaultProfile as Profile;
+      }
+      return newData as Profile;
+    }
+
     return data as Profile;
   },
 

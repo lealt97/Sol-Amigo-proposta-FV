@@ -40,7 +40,7 @@ export function LoginForm() {
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="space-y-2 text-center">
         <div className="flex justify-center mb-4">
-          <div className="w-12 h-12 bg-brand-blue rounded-xl flex items-center justify-center text-black font-bold text-xl">
+          <div className="w-12 h-12 bg-brand-blue rounded-xl flex items-center justify-center text-white font-bold text-xl">
             S
           </div>
         </div>

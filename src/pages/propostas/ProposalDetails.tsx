@@ -233,7 +233,7 @@ export function ProposalDetails() {
                 <select 
                   value={proposal.status}
                   onChange={(e) => handleStatusChange(e.target.value as Proposal['status'])}
-                  className="bg-white text-xs text-slate-500 border border-brand-border rounded px-2 py-1 outline-none"
+                  className="bg-brand-surface text-xs text-slate-500 border border-brand-border rounded px-2 py-1 outline-none"
                 >
                   <option value="draft">Rascunho</option>
                   <option value="pending">Pendente (Enviada)</option>
@@ -261,7 +261,7 @@ export function ProposalDetails() {
           {proposal.pdf_url ? (
             <Button 
               onClick={() => window.open(proposal.pdf_url || '', '_blank')} 
-              className="bg-brand-blue hover:bg-brand-blue-hover text-black gap-2"
+              className="bg-brand-blue hover:bg-brand-blue-hover text-white gap-2"
             >
               <Download className="w-4 h-4" />
               Baixar PDF
@@ -269,7 +269,7 @@ export function ProposalDetails() {
           ) : (
             <Button 
               onClick={handleGeneratePdf} 
-              className="bg-brand-blue hover:bg-brand-blue-hover text-black gap-2"
+              className="bg-brand-blue hover:bg-brand-blue-hover text-white gap-2"
               disabled={generatingPdf}
             >
               <FileText className="w-4 h-4" />
@@ -332,7 +332,7 @@ export function ProposalDetails() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="p-3 bg-white border border-brand-border rounded-lg">
+                <div className="p-3 bg-brand-surface border border-brand-border rounded-lg">
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <p className="text-xs text-slate-500 truncate">
                       {window.location.origin}/proposta/{proposal.public_token}
@@ -379,7 +379,7 @@ export function ProposalDetails() {
                         <span className="text-red-400">{formatDate(proposal.rejected_at)}</span>
                       </div>
                       {proposal.rejection_reason && (
-                        <p className="text-xs text-slate-500 bg-white p-2 rounded border border-brand-border">
+                        <p className="text-xs text-slate-500 bg-brand-surface p-2 rounded border border-brand-border">
                           Motivo: {proposal.rejection_reason}
                         </p>
                       )}
@@ -423,6 +423,12 @@ export function ProposalDetails() {
                     <p className="text-xs text-slate-500 mb-1">Potência</p>
                     <p className="text-lg font-bold text-brand-dark">
                       {proposal.solar.installed_power_kwp?.toFixed(2) || '-'} <span className="text-sm font-normal text-slate-500">kWp</span>
+                    </p>
+                  </div>
+                  <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Consumo Médio</p>
+                    <p className="text-lg font-bold text-brand-dark">
+                      {proposal.monthly_consumption_kwh || '-'} <span className="text-sm font-normal text-slate-500">kWh</span>
                     </p>
                   </div>
                   <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
@@ -494,7 +500,7 @@ export function ProposalDetails() {
 
       {showWaModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white border border-brand-border rounded-xl max-w-md w-full p-6 shadow-2xl">
+          <div className="bg-brand-surface border border-brand-border rounded-xl max-w-md w-full p-6 shadow-2xl">
             <h3 className="text-xl font-bold text-brand-dark mb-4">Enviar Mensagem</h3>
             <p className="text-sm text-slate-500 mb-4">Você pode revisar, editar e copiar a mensagem antes de enviar pelo WhatsApp.</p>
             <textarea

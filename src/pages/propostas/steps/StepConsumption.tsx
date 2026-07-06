@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useFormContext, useFieldArray, useWatch } from 'react-hook-form';
 import { Label } from '../../../components/ui/Label';
 import { Select } from '../../../components/ui/Select';
@@ -18,6 +19,19 @@ export function StepConsumption() {
   });
 
   const loads = useWatch({ control, name: 'loads' }) || [];
+  const history = useWatch({ control, name: 'history' }) || [];
+
+  const historyVals = history.map(v => Number(v) || 0).filter(v => v > 0);
+  const historyAvg = historyVals.length > 0 ? historyVals.reduce((a, b) => a + b, 0) / historyVals.length : 0;
+
+  const monthlyKwh = useWatch({ control, name: 'monthly_consumption_kwh' });
+
+  useEffect(() => {
+    if (consumptionSource === 'historical' && historyVals.length > 0) {
+      setValue('monthly_consumption_kwh', historyAvg);
+    }
+  }, [historyAvg, consumptionSource, setValue, historyVals.length]);
+
 
   const handleCalculateDailyLoad = (index: number) => {
     const power = Number(loads[index]?.power_watts) || 0;
@@ -81,10 +95,35 @@ export function StepConsumption() {
       )}
 
       {consumptionSource === 'historical' && (
-        <div className="p-4 border border-brand-border rounded-lg bg-gray-50">
-          <p className="text-sm text-slate-500">
-            O preenchimento do histórico de 12 meses será adicionado nas próximas atualizações.
-          </p>
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((month, idx) => (
+              <div key={idx} className="space-y-2">
+                <Label htmlFor={`history.${idx}`}>{month}</Label>
+                <Input
+                  id={`history.${idx}`}
+                  type="number"
+                  placeholder="kWh"
+                  {...register(`history.${idx}` as const)}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-lg bg-brand-surface border border-brand-border flex justify-between items-center">
+              <span className="text-slate-500">Média Mensal Considerada</span>
+              <span className="text-lg font-bold text-emerald-500">
+                {historyVals.length > 0 ? historyAvg.toFixed(2) : (Number(monthlyKwh) || 0).toFixed(2)} kWh
+              </span>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button type="button" onClick={() => {
+              setValue('monthly_consumption_kwh', historyAvg);
+            }} variant="secondary">
+              Usar esta média no dimensionamento
+            </Button>
+          </div>
         </div>
       )}
 
@@ -105,7 +144,7 @@ export function StepConsumption() {
 
           <div className="border border-brand-border rounded-lg overflow-hidden">
             <table className="w-full text-sm text-left text-slate-500">
-              <thead className="text-xs text-slate-500 uppercase bg-white border-b border-brand-border">
+              <thead className="text-xs text-slate-500 uppercase bg-brand-surface border-b border-brand-border">
                 <tr>
                   <th className="px-4 py-3">Equipamento</th>
                   <th className="px-4 py-3 w-28">Potência (W)</th>
@@ -166,7 +205,7 @@ export function StepConsumption() {
                         type="number"
                         readOnly
                         {...register(`loads.${index}.daily_consumption`)}
-                        className="h-8 bg-white text-brand-dark"
+                        className="h-8 bg-brand-surface text-brand-dark"
                       />
                     </td>
                     <td className="px-4 py-2 text-center">
@@ -194,11 +233,11 @@ export function StepConsumption() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 rounded-lg bg-white border border-brand-border flex justify-between items-center">
+            <div className="p-4 rounded-lg bg-brand-surface border border-brand-border flex justify-between items-center">
               <span className="text-slate-500">Consumo Diário Total</span>
               <span className="text-lg font-bold text-brand-dark">{totalDaily.toFixed(2)} kWh</span>
             </div>
-            <div className="p-4 rounded-lg bg-white border border-brand-border flex justify-between items-center">
+            <div className="p-4 rounded-lg bg-brand-surface border border-brand-border flex justify-between items-center">
               <span className="text-slate-500">Consumo Mensal Estimado</span>
               <span className="text-lg font-bold text-emerald-500">{totalMonthly.toFixed(2)} kWh</span>
             </div>

@@ -28,6 +28,7 @@ export function RegisterForm() {
       email: data.email,
       password: data.password,
       options: {
+        emailRedirectTo: `${window.location.origin}/login`,
         data: {
           name: data.name,
           company_name: data.company_name,

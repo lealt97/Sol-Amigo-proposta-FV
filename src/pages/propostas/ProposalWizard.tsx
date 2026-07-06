@@ -60,6 +60,7 @@ export function ProposalWizard() {
             client_id: proposal.client_id,
             title: proposal.title || '',
             consumption_source: proposal.consumption_source || 'average',
+            history: (proposal as any).history || [],
             estimated_daily_consumption: proposal.estimated_daily_consumption || '',
             monthly_consumption_kwh: proposal.monthly_consumption_kwh || '',
             bill_amount: proposal.bill_amount || '',

@@ -1,7 +1,13 @@
 -- Executar no SQL Editor do Supabase
 
--- Cria a tabela de profiles
-CREATE TABLE public.profiles (
+-- 1. EXTENSÕES
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- 2. TABELAS
+
+-- Profiles
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   company_name TEXT NOT NULL,
@@ -9,63 +15,46 @@ CREATE TABLE public.profiles (
   logo_url TEXT,
   role TEXT DEFAULT 'owner',
   mfa_enabled BOOLEAN DEFAULT false,
+  document TEXT,
+  company_email TEXT,
+  website TEXT,
+  cep TEXT,
+  address TEXT,
+  city TEXT,
+  state TEXT,
+  seller_name TEXT,
+  seller_phone TEXT,
+  seller_email TEXT,
+  default_margin_percentage NUMERIC,
+  default_validity_days INTEGER,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Ativa Row Level Security (RLS)
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- Clients
+CREATE TABLE IF NOT EXISTS public.clients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  document TEXT,
+  email TEXT,
+  phone TEXT,
+  cep TEXT,
+  city TEXT,
+  state TEXT,
+  address TEXT,
+  number TEXT,
+  neighborhood TEXT,
+  complement TEXT,
+  avg_consumption_kwh NUMERIC,
+  notes TEXT,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
 
--- Policy: Usuário pode visualizar apenas o próprio profile
-CREATE POLICY "Usuário pode visualizar apenas o próprio profile"
-  ON public.profiles FOR SELECT
-  USING (auth.uid() = id);
-
--- Policy: Usuário pode atualizar apenas o próprio profile
-CREATE POLICY "Usuário pode atualizar apenas o próprio profile"
-  ON public.profiles FOR UPDATE
-  USING (auth.uid() = id);
-
--- Policy: Usuário pode inserir apenas o próprio profile
-CREATE POLICY "Usuário pode inserir apenas o próprio profile"
-  ON public.profiles FOR INSERT
-  WITH CHECK (auth.uid() = id);
-
--- Trigger para atualizar o updated_at
-CREATE OR REPLACE FUNCTION public.handle_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER update_profiles_updated_at
-  BEFORE UPDATE ON public.profiles
-  FOR EACH ROW
-  EXECUTE PROCEDURE public.handle_updated_at();
-
--- Trigger para criar o profile automaticamente ao criar usuário no Auth
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, name, company_name, phone)
-  VALUES (
-    NEW.id,
-    NEW.raw_user_meta_data->>'name',
-    NEW.raw_user_meta_data->>'company_name',
-    NEW.raw_user_meta_data->>'phone'
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- Cria a tabela de proposals
-CREATE TABLE public.proposals (
+-- Proposals
+CREATE TABLE IF NOT EXISTS public.proposals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
@@ -73,6 +62,7 @@ CREATE TABLE public.proposals (
   title TEXT,
   status TEXT DEFAULT 'draft',
   consumption_source TEXT,
+  history JSONB,
   monthly_consumption_kwh NUMERIC,
   bill_amount NUMERIC,
   energy_tariff NUMERIC,
@@ -96,42 +86,18 @@ CREATE TABLE public.proposals (
   pdf_url TEXT,
   public_token TEXT UNIQUE,
   sent_whatsapp_at TIMESTAMP WITH TIME ZONE,
+  public_viewed_at TIMESTAMP WITH TIME ZONE,
   accepted_at TIMESTAMP WITH TIME ZONE,
   rejected_at TIMESTAMP WITH TIME ZONE,
+  rejection_reason TEXT,
+  client_ip TEXT,
+  client_user_agent TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Ativa Row Level Security (RLS)
-ALTER TABLE public.proposals ENABLE ROW LEVEL SECURITY;
-
--- Policy: Usuário pode ver apenas suas propostas
-CREATE POLICY "Usuário pode ver apenas suas propostas"
-  ON public.proposals FOR SELECT
-  USING (auth.uid() = user_id);
-
--- Policy: Usuário pode criar propostas para seus clientes
-CREATE POLICY "Usuário pode criar propostas para seus clientes"
-  ON public.proposals FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
--- Policy: Usuário pode editar apenas suas propostas
-CREATE POLICY "Usuário pode editar apenas suas propostas"
-  ON public.proposals FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Policy: Usuário pode excluir apenas suas propostas
-CREATE POLICY "Usuário pode excluir apenas suas propostas"
-  ON public.proposals FOR DELETE
-  USING (auth.uid() = user_id);
-
-CREATE TRIGGER update_proposals_updated_at
-  BEFORE UPDATE ON public.proposals
-  FOR EACH ROW
-  EXECUTE PROCEDURE public.handle_updated_at();
-
--- Cria a tabela de solar_system_calculations
-CREATE TABLE public.solar_system_calculations (
+-- Solar System Calculations
+CREATE TABLE IF NOT EXISTS public.solar_system_calculations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   proposal_id UUID NOT NULL REFERENCES public.proposals(id) ON DELETE CASCADE,
   cep TEXT,
@@ -140,6 +106,7 @@ CREATE TABLE public.solar_system_calculations (
   yield_factor NUMERIC DEFAULT 0.80,
   generation_target_percent NUMERIC DEFAULT 100,
   oversizing NUMERIC DEFAULT 1.20,
+  history JSONB,
   monthly_consumption_kwh NUMERIC,
   projected_consumption_kwh NUMERIC,
   required_power_kwp NUMERIC,
@@ -162,85 +129,8 @@ CREATE TABLE public.solar_system_calculations (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Ativa Row Level Security (RLS)
-ALTER TABLE public.solar_system_calculations ENABLE ROW LEVEL SECURITY;
-
--- Policy: Usuário só pode ver cálculos das próprias propostas
-CREATE POLICY "Usuário só pode ver cálculos das próprias propostas"
-  ON public.solar_system_calculations FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
-
--- Policy: Usuário só pode criar cálculos para as próprias propostas
-CREATE POLICY "Usuário só pode criar cálculos para as próprias propostas"
-  ON public.solar_system_calculations FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
-
--- Policy: Usuário só pode atualizar cálculos das próprias propostas
-CREATE POLICY "Usuário só pode atualizar cálculos das próprias propostas"
-  ON public.solar_system_calculations FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
-
--- Policy: Usuário só pode deletar cálculos das próprias propostas
-CREATE POLICY "Usuário só pode deletar cálculos das próprias propostas"
-  ON public.solar_system_calculations FOR DELETE
-  USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
-
-CREATE TRIGGER update_solar_system_calculations_updated_at
-  BEFORE UPDATE ON public.solar_system_calculations
-  FOR EACH ROW
-  EXECUTE PROCEDURE public.handle_updated_at();
-
-CREATE TABLE public.clients (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  document TEXT,
-  email TEXT,
-  phone TEXT,
-  cep TEXT,
-  city TEXT,
-  state TEXT,
-  address TEXT,
-  number TEXT,
-  neighborhood TEXT,
-  complement TEXT,
-  avg_consumption_kwh NUMERIC,
-  notes TEXT,
-  status TEXT DEFAULT 'active',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- Ativa Row Level Security (RLS)
-ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
-
--- Policy: Usuário pode ver apenas seus clientes
-CREATE POLICY "Usuário pode ver apenas seus clientes"
-  ON public.clients FOR SELECT
-  USING (auth.uid() = user_id);
-
--- Policy: Usuário pode criar clientes para si mesmo
-CREATE POLICY "Usuário pode criar clientes para si mesmo"
-  ON public.clients FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
--- Policy: Usuário pode editar apenas seus clientes
-CREATE POLICY "Usuário pode editar apenas seus clientes"
-  ON public.clients FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Policy: Usuário pode excluir apenas seus clientes
-CREATE POLICY "Usuário pode excluir apenas seus clientes"
-  ON public.clients FOR DELETE
-  USING (auth.uid() = user_id);
-
-CREATE TRIGGER update_clients_updated_at
-  BEFORE UPDATE ON public.clients
-  FOR EACH ROW
-  EXECUTE PROCEDURE public.handle_updated_at();
-
--- Cria a tabela de proposal_loads
-CREATE TABLE public.proposal_loads (
+-- Proposal Loads
+CREATE TABLE IF NOT EXISTS public.proposal_loads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   proposal_id UUID NOT NULL REFERENCES public.proposals(id) ON DELETE CASCADE,
   equipment_name TEXT NOT NULL,
@@ -252,37 +142,8 @@ CREATE TABLE public.proposal_loads (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Ativa Row Level Security (RLS)
-ALTER TABLE public.proposal_loads ENABLE ROW LEVEL SECURITY;
-
--- Policy: Usuário pode ver apenas as cargas das próprias propostas
-CREATE POLICY "Usuário pode ver apenas as cargas das próprias propostas"
-  ON public.proposal_loads FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
-
--- Policy: Usuário pode criar cargas para as próprias propostas
-CREATE POLICY "Usuário pode criar cargas para as próprias propostas"
-  ON public.proposal_loads FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
-
--- Policy: Usuário pode editar cargas das próprias propostas
-CREATE POLICY "Usuário pode editar cargas das próprias propostas"
-  ON public.proposal_loads FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
-
--- Policy: Usuário pode excluir cargas das próprias propostas
-CREATE POLICY "Usuário pode excluir cargas das próprias propostas"
-  ON public.proposal_loads FOR DELETE
-  USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
-
-CREATE TRIGGER update_proposal_loads_updated_at
-  BEFORE UPDATE ON public.proposal_loads
-  FOR EACH ROW
-  EXECUTE PROCEDURE public.handle_updated_at();
-
-
--- Cria a tabela de pdf_cover_templates
-CREATE TABLE public.pdf_cover_templates (
+-- PDF Cover Templates
+CREATE TABLE IF NOT EXISTS public.pdf_cover_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   svg_file_url TEXT NOT NULL,
@@ -291,8 +152,8 @@ CREATE TABLE public.pdf_cover_templates (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Cria a tabela de pdf_templates
-CREATE TABLE public.pdf_templates (
+-- PDF Templates
+CREATE TABLE IF NOT EXISTS public.pdf_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -308,45 +169,172 @@ CREATE TABLE public.pdf_templates (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Habilita RLS
+-- Proposal Events
+CREATE TABLE IF NOT EXISTS public.proposal_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  proposal_id UUID NOT NULL REFERENCES public.proposals(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  event_type TEXT NOT NULL,
+  description TEXT,
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 3. TRIGGERS E FUNCTIONS GERAIS
+DROP FUNCTION IF EXISTS public.handle_updated_at() CASCADE;
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_proposals_updated_at ON public.proposals;
+CREATE TRIGGER update_proposals_updated_at
+  BEFORE UPDATE ON public.proposals
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_solar_system_calculations_updated_at ON public.solar_system_calculations;
+CREATE TRIGGER update_solar_system_calculations_updated_at
+  BEFORE UPDATE ON public.solar_system_calculations
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_clients_updated_at ON public.clients;
+CREATE TRIGGER update_clients_updated_at
+  BEFORE UPDATE ON public.clients
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_proposal_loads_updated_at ON public.proposal_loads;
+CREATE TRIGGER update_proposal_loads_updated_at
+  BEFORE UPDATE ON public.proposal_loads
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.handle_updated_at();
+
+-- Trigger para criar o profile automaticamente ao criar usuário no Auth
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, name, company_name, phone)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'company_name', ''),
+    NEW.raw_user_meta_data->>'phone'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 4. ROW LEVEL SECURITY (RLS) E POLICIES
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.proposals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.solar_system_calculations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.proposal_loads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pdf_cover_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pdf_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.proposal_events ENABLE ROW LEVEL SECURITY;
 
--- Políticas para pdf_cover_templates
-CREATE POLICY "Templates de capa sao visiveis para todos os usuarios autenticados"
-ON public.pdf_cover_templates FOR SELECT TO authenticated USING (true);
+-- Limpar policies antigas para evitar erros de duplicidade
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public') 
+    LOOP
+        EXECUTE 'DROP POLICY IF EXISTS ' || quote_ident(r.policyname) || ' ON public.' || quote_ident(r.tablename);
+    END LOOP;
+END $$;
 
--- Políticas para pdf_templates
-CREATE POLICY "Usuarios podem ver seus proprios templates de pdf"
-ON public.pdf_templates FOR SELECT TO authenticated USING (auth.uid() = user_id);
+-- Profiles Policies
+CREATE POLICY "Usuário pode visualizar apenas o próprio profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Usuário pode atualizar apenas o próprio profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Usuário pode inserir apenas o próprio profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
-CREATE POLICY "Usuarios podem inserir seus proprios templates de pdf"
-ON public.pdf_templates FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+-- Clients Policies
+CREATE POLICY "Usuário pode ver apenas seus clientes" ON public.clients FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Usuário pode criar clientes para si mesmo" ON public.clients FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Usuário pode editar apenas seus clientes" ON public.clients FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Usuário pode excluir apenas seus clientes" ON public.clients FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY "Usuarios podem atualizar seus proprios templates de pdf"
-ON public.pdf_templates FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+-- Proposals Policies
+CREATE POLICY "Usuário pode ver apenas suas propostas" ON public.proposals FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Usuário pode criar propostas para seus clientes" ON public.proposals FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Usuário pode editar apenas suas propostas" ON public.proposals FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Usuário pode excluir apenas suas propostas" ON public.proposals FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Leitura anonima de proposta por token" ON public.proposals FOR SELECT USING (public_token IS NOT NULL);
+CREATE POLICY "Atualizacao anonima de proposta por token" ON public.proposals FOR UPDATE USING (public_token IS NOT NULL);
 
-CREATE POLICY "Usuarios podem deletar seus proprios templates de pdf"
-ON public.pdf_templates FOR DELETE TO authenticated USING (auth.uid() = user_id);
+-- Solar System Calculations Policies
+CREATE POLICY "Usuário só pode ver cálculos das próprias propostas" ON public.solar_system_calculations FOR SELECT USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
+CREATE POLICY "Usuário só pode criar cálculos para as próprias propostas" ON public.solar_system_calculations FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
+CREATE POLICY "Usuário só pode atualizar cálculos das próprias propostas" ON public.solar_system_calculations FOR UPDATE USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
+CREATE POLICY "Usuário só pode deletar cálculos das próprias propostas" ON public.solar_system_calculations FOR DELETE USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
 
--- Cria o bucket 'pdf-assets'
+-- Proposal Loads Policies
+CREATE POLICY "Usuário pode ver apenas as cargas das próprias propostas" ON public.proposal_loads FOR SELECT USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
+CREATE POLICY "Usuário pode criar cargas para as próprias propostas" ON public.proposal_loads FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
+CREATE POLICY "Usuário pode editar cargas das próprias propostas" ON public.proposal_loads FOR UPDATE USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
+CREATE POLICY "Usuário pode excluir cargas das próprias propostas" ON public.proposal_loads FOR DELETE USING (EXISTS (SELECT 1 FROM public.proposals WHERE id = proposal_id AND user_id = auth.uid()));
+
+-- PDF Cover Templates Policies
+CREATE POLICY "Templates de capa sao visiveis para todos os usuarios autenticados" ON public.pdf_cover_templates FOR SELECT TO authenticated USING (true);
+
+-- PDF Templates Policies
+CREATE POLICY "Usuarios podem ver seus proprios templates de pdf" ON public.pdf_templates FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Usuarios podem inserir seus proprios templates de pdf" ON public.pdf_templates FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Usuarios podem atualizar seus proprios templates de pdf" ON public.pdf_templates FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Usuarios podem deletar seus proprios templates de pdf" ON public.pdf_templates FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- Proposal Events Policies
+CREATE POLICY "Usuario pode ler eventos das proprias propostas" ON public.proposal_events FOR SELECT USING (EXISTS (SELECT 1 FROM public.proposals p WHERE p.id = proposal_id AND p.user_id = auth.uid()));
+CREATE POLICY "Usuario pode inserir eventos nas proprias propostas" ON public.proposal_events FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.proposals p WHERE p.id = proposal_id AND p.user_id = auth.uid()));
+CREATE POLICY "Anonimo pode inserir eventos via link publico" ON public.proposal_events FOR INSERT WITH CHECK (true);
+
+-- 5. BUCKETS STORAGE E POLICIES
 INSERT INTO storage.buckets (id, name, public) VALUES ('pdf-assets', 'pdf-assets', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('logos', 'logos', true) ON CONFLICT (id) DO NOTHING;
 
--- Políticas para o bucket 'pdf-assets'
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'storage') 
+    LOOP
+        EXECUTE 'DROP POLICY IF EXISTS ' || quote_ident(r.policyname) || ' ON storage.' || quote_ident(r.tablename);
+    END LOOP;
+END $$;
+
+-- Policies para pdf-assets
 CREATE POLICY "Leitura pública para pdf-assets" ON storage.objects FOR SELECT USING (bucket_id = 'pdf-assets');
-CREATE POLICY "Upload para pdf-assets" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'pdf-assets' AND auth.role() = 'authenticated');
-CREATE POLICY "Atualização para pdf-assets" ON storage.objects FOR UPDATE WITH CHECK (bucket_id = 'pdf-assets' AND auth.role() = 'authenticated');
-CREATE POLICY "Exclusão para pdf-assets" ON storage.objects FOR DELETE USING (bucket_id = 'pdf-assets' AND auth.role() = 'authenticated');
+CREATE POLICY "Upload para pdf-assets" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'pdf-assets');
+CREATE POLICY "Atualização para pdf-assets" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'pdf-assets');
+CREATE POLICY "Exclusão para pdf-assets" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'pdf-assets');
 
--- Adicionar novos campos em proposals
-ALTER TABLE public.proposals ADD COLUMN IF NOT EXISTS public_viewed_at TIMESTAMP WITH TIME ZONE;
-ALTER TABLE public.proposals ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMP WITH TIME ZONE;
-ALTER TABLE public.proposals ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP WITH TIME ZONE;
-ALTER TABLE public.proposals ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
-ALTER TABLE public.proposals ADD COLUMN IF NOT EXISTS client_ip TEXT;
-ALTER TABLE public.proposals ADD COLUMN IF NOT EXISTS client_user_agent TEXT;
+-- Policies para logos
+CREATE POLICY "Public Access for logos" ON storage.objects FOR SELECT USING (bucket_id = 'logos');
+CREATE POLICY "Users can upload logos" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'logos');
+CREATE POLICY "Users can update their logos" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'logos');
+CREATE POLICY "Users can delete their logos" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'logos');
 
--- Cria function e rpc para buscar proposta publica
+-- 6. FUNCTIONS (RPC)
+DROP FUNCTION IF EXISTS public.get_public_proposal(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_public_proposal(p_token TEXT)
 RETURNS json
 LANGUAGE plpgsql
@@ -396,12 +384,12 @@ BEGIN
   ) INTO v_proposal
   FROM public.proposals p
   WHERE p.public_token = p_token;
-
+  
   RETURN v_proposal;
 END;
 $$;
 
--- Cria function e rpc para atualizar status via token publico
+DROP FUNCTION IF EXISTS public.update_public_proposal_status(text, text, text, text, text) CASCADE;
 CREATE OR REPLACE FUNCTION public.update_public_proposal_status(
   p_token TEXT,
   p_status TEXT,
@@ -438,68 +426,48 @@ BEGIN
   RETURN false;
 END;
 $$;
-
--- Policy para leitura publica por token
-CREATE POLICY "Leitura anonima de proposta por token"
-ON public.proposals FOR SELECT
-USING (public_token IS NOT NULL);
-
--- Policy para atualizar proposta por token
-CREATE POLICY "Atualizacao anonima de proposta por token"
-ON public.proposals FOR UPDATE
-USING (public_token IS NOT NULL);
-
--- Cria a tabela de proposal_events
-CREATE TABLE public.proposal_events (
+CREATE TABLE IF NOT EXISTS public.pdf_template_presets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  proposal_id UUID NOT NULL REFERENCES public.proposals(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  event_type TEXT NOT NULL,
-  description TEXT,
-  metadata JSONB,
+  name TEXT NOT NULL,
+  thumbnail_url TEXT,
+  svg_content TEXT,
+  default_theme JSONB,
+  page_config JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Ativa RLS
-ALTER TABLE public.proposal_events ENABLE ROW LEVEL SECURITY;
+CREATE TABLE IF NOT EXISTS public.pdf_user_models (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  preset_id UUID REFERENCES public.pdf_template_presets(id) ON DELETE SET NULL,
+  source_model_id UUID REFERENCES public.pdf_user_models(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  theme JSONB,
+  logo_url TEXT,
+  cover_image_url TEXT,
+  logo_transform JSONB,
+  cover_image_transform JSONB,
+  page_config JSONB,
+  is_default BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
 
--- Policy: Usuario pode ler eventos das proprias propostas
-CREATE POLICY "Usuario pode ler eventos das proprias propostas"
-  ON public.proposal_events FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.proposals p WHERE p.id = proposal_id AND p.user_id = auth.uid()));
+ALTER TABLE public.pdf_template_presets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pdf_user_models ENABLE ROW LEVEL SECURITY;
 
--- Policy: Usuario pode inserir eventos nas proprias propostas
-CREATE POLICY "Usuario pode inserir eventos nas proprias propostas"
-  ON public.proposal_events FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM public.proposals p WHERE p.id = proposal_id AND p.user_id = auth.uid()));
-  
--- Policy: Anonimo pode inserir eventos (para link publico)
-CREATE POLICY "Anonimo pode inserir eventos via link publico"
-  ON public.proposal_events FOR INSERT
-  WITH CHECK (true); -- Controle feito via backend/RPC ou permitindo geral para insercao apenas
+CREATE POLICY "Presets are viewable by all users" ON public.pdf_template_presets
+  FOR SELECT USING (true);
 
+CREATE POLICY "Users can view their own models" ON public.pdf_user_models
+  FOR SELECT USING (auth.uid() = user_id);
 
--- Atualiza a tabela profiles com os novos campos
-ALTER TABLE public.profiles
-ADD COLUMN IF NOT EXISTS document TEXT,
-ADD COLUMN IF NOT EXISTS company_email TEXT,
-ADD COLUMN IF NOT EXISTS website TEXT,
-ADD COLUMN IF NOT EXISTS cep TEXT,
-ADD COLUMN IF NOT EXISTS address TEXT,
-ADD COLUMN IF NOT EXISTS city TEXT,
-ADD COLUMN IF NOT EXISTS state TEXT,
-ADD COLUMN IF NOT EXISTS seller_name TEXT,
-ADD COLUMN IF NOT EXISTS seller_phone TEXT,
-ADD COLUMN IF NOT EXISTS seller_email TEXT,
-ADD COLUMN IF NOT EXISTS default_margin_percentage NUMERIC,
-ADD COLUMN IF NOT EXISTS default_validity_days INTEGER;
+CREATE POLICY "Users can insert their own models" ON public.pdf_user_models
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Criação do bucket 'logos' caso não exista (Nota: em produção deve ser criado via dashboard ou config. Mas colocamos aqui para doc)
-INSERT INTO storage.buckets (id, name, public) VALUES ('logos', 'logos', true) ON CONFLICT (id) DO NOTHING;
+CREATE POLICY "Users can update their own models" ON public.pdf_user_models
+  FOR UPDATE USING (auth.uid() = user_id);
 
--- Policy para ler logos publicamente
-CREATE POLICY "Public Access for logos" ON storage.objects FOR SELECT USING ( bucket_id = 'logos' );
--- Policy para usuários logados inserirem/atualizarem suas logos
-CREATE POLICY "Users can upload logos" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'logos' AND auth.role() = 'authenticated' );
-CREATE POLICY "Users can update their logos" ON storage.objects FOR UPDATE USING ( bucket_id = 'logos' AND auth.role() = 'authenticated' );
-CREATE POLICY "Users can delete their logos" ON storage.objects FOR DELETE USING ( bucket_id = 'logos' AND auth.role() = 'authenticated' );
+CREATE POLICY "Users can delete their own models" ON public.pdf_user_models
+  FOR DELETE USING (auth.uid() = user_id);
+

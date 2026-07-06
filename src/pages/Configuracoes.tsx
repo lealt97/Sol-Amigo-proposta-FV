@@ -59,7 +59,7 @@ export function Configuracoes() {
       await profileService.updateProfile(user.id, { logo_url: url });
       toast.success('Logo enviada com sucesso!');
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao fazer upload da logo');
+      toast.error(err?.message?.includes('row-level security') ? 'Erro de permissão. Execute o supabase-schema.sql no SQL Editor.' : (err.message || 'Erro ao fazer upload da logo'));
     } finally {
       setUploadingLogo(false);
     }
@@ -141,7 +141,7 @@ export function Configuracoes() {
                       name="company_name"
                       value={profile.company_name || ''} 
                       onChange={handleChange}
-                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                      className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                     />
                   </div>
                   <div className="space-y-2">
@@ -150,7 +150,7 @@ export function Configuracoes() {
                       name="document"
                       value={profile.document || ''} 
                       onChange={handleChange}
-                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                      className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                     />
                   </div>
                   <div className="space-y-2">
@@ -159,7 +159,7 @@ export function Configuracoes() {
                       name="phone"
                       value={profile.phone || ''} 
                       onChange={handleChange}
-                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                      className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                     />
                   </div>
                   <div className="space-y-2">
@@ -169,7 +169,7 @@ export function Configuracoes() {
                       type="email"
                       value={profile.company_email || ''} 
                       onChange={handleChange}
-                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                      className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
@@ -179,7 +179,7 @@ export function Configuracoes() {
                       placeholder="https://"
                       value={profile.website || ''} 
                       onChange={handleChange}
-                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                      className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                     />
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export function Configuracoes() {
                         name="cep"
                         value={profile.cep || ''} 
                         onChange={handleChange}
-                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                        className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                       />
                     </div>
                     <div className="space-y-2 md:col-span-2">
@@ -202,7 +202,7 @@ export function Configuracoes() {
                         name="address"
                         value={profile.address || ''} 
                         onChange={handleChange}
-                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                        className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                       />
                     </div>
                     <div className="space-y-2">
@@ -211,7 +211,7 @@ export function Configuracoes() {
                         name="city"
                         value={profile.city || ''} 
                         onChange={handleChange}
-                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                        className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                       />
                     </div>
                     <div className="space-y-2">
@@ -221,7 +221,7 @@ export function Configuracoes() {
                         maxLength={2}
                         value={profile.state || ''} 
                         onChange={handleChange}
-                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none uppercase" 
+                        className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none uppercase" 
                       />
                     </div>
                   </div>
@@ -237,10 +237,10 @@ export function Configuracoes() {
                 <CardDescription>Esta imagem aparecerá no cabeçalho das propostas em PDF e nos links públicos.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-brand-border rounded-lg bg-white">
+                <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-brand-border rounded-lg bg-brand-surface">
                   {profile.logo_url ? (
                     <div className="flex flex-col items-center gap-4">
-                      <div className="h-32 w-64 bg-white rounded-lg flex items-center justify-center p-2 border border-brand-border">
+                      <div className="h-32 w-64 bg-brand-surface rounded-lg flex items-center justify-center p-2 border border-brand-border">
                         <img src={profile.logo_url} alt="Logo" className="max-h-full max-w-full object-contain" />
                       </div>
                       <p className="text-sm text-slate-500">Logo atual</p>
@@ -289,7 +289,7 @@ export function Configuracoes() {
                     name="seller_name"
                     value={profile.seller_name || profile.name || ''} 
                     onChange={handleChange}
-                    className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                    className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -298,7 +298,7 @@ export function Configuracoes() {
                     name="seller_phone"
                     value={profile.seller_phone || ''} 
                     onChange={handleChange}
-                    className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                    className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -308,7 +308,7 @@ export function Configuracoes() {
                     type="email"
                     value={profile.seller_email || ''} 
                     onChange={handleChange}
-                    className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                    className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                   />
                 </div>
               </CardContent>
@@ -329,7 +329,7 @@ export function Configuracoes() {
                     name="default_margin_percentage"
                     value={profile.default_margin_percentage || ''} 
                     onChange={handleNumberChange}
-                    className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                    className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                   />
                   <p className="text-xs text-slate-500">Esta margem será aplicada automaticamente ao criar uma nova proposta.</p>
                 </div>
@@ -340,7 +340,7 @@ export function Configuracoes() {
                     name="default_validity_days"
                     value={profile.default_validity_days || 7} 
                     onChange={handleNumberChange}
-                    className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
+                    className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" 
                   />
                   <p className="text-xs text-slate-500">Determina a data de expiração calculada a partir da data de criação.</p>
                 </div>
@@ -355,7 +355,7 @@ export function Configuracoes() {
                 <CardDescription>Gerencie as configurações de segurança da sua conta.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 border border-brand-border rounded-lg bg-white">
+                <div className="flex items-center justify-between p-4 border border-brand-border rounded-lg bg-brand-surface">
                   <div>
                     <h4 className="text-sm font-medium text-brand-dark">Autenticação em Duas Etapas (MFA)</h4>
                     <p className="text-xs text-slate-500 mt-1">
@@ -368,7 +368,7 @@ export function Configuracoes() {
                       onClick={() => setProfile({...profile, mfa_enabled: !profile.mfa_enabled})}
                       className={`w-10 h-6 rounded-full transition-colors relative flex items-center px-1 ${profile.mfa_enabled ? 'bg-brand-blue' : 'bg-slate-300'}`}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white transition-transform ${profile.mfa_enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                      <div className={`w-4 h-4 rounded-full bg-brand-surface transition-transform ${profile.mfa_enabled ? 'translate-x-4' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 </div>

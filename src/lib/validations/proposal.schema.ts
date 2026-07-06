@@ -9,6 +9,7 @@ export const proposalSchema = z.object({
   monthly_consumption_kwh: z.union([z.string(), z.number()]).optional(),
   bill_amount: z.union([z.string(), z.number()]).optional(),
   estimated_daily_consumption: z.union([z.string(), z.number()]).optional(),
+  history: z.array(z.union([z.string(), z.number()])).optional(),
   loads: z.array(z.object({
     id: z.string().optional(),
     equipment_name: z.string().min(1, 'Nome do equipamento é obrigatório'),

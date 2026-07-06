@@ -1,284 +1,220 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
-import { pdfDesignService } from '../../services/pdfDesignService';
-import { PdfTemplate, PdfCoverTemplate } from '../../types/pdfDesign';
-import { SvgPreview } from './SvgPreview';
+import { pdfModelService } from '../../services/pdfModelService';
+import { PdfTemplatePreset, PdfUserModel } from '../../types/pdfModels';
+import { DesignPdfEditor } from './DesignPdfEditor';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Label } from '../../components/ui/Label';
-import { Save, Image as ImageIcon, LayoutTemplate } from 'lucide-react';
+import { LayoutTemplate, Plus, MoreVertical, Edit2, Copy, Trash, Star } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 export function DesignPdf() {
   const { user } = useAuth();
   
-  const [coverTemplates, setCoverTemplates] = useState<PdfCoverTemplate[]>([]);
-  const [userTemplate, setUserTemplate] = useState<Partial<PdfTemplate> | null>(null);
-  
-  const [primaryColor, setPrimaryColor] = useState('#3b82f6');
-  const [secondaryColor, setSecondaryColor] = useState('#1e3a8a');
-  const [accentColor, setAccentColor] = useState('#10b981');
-  const [backgroundColor, setBackgroundColor] = useState('#09090b');
-  
-  const [selectedCover, setSelectedCover] = useState<PdfCoverTemplate | null>(null);
-  const [logoUrl, setLogoUrl] = useState('');
-  const [coverPhotoUrl, setCoverPhotoUrl] = useState('');
-  
+  const [presets, setPresets] = useState<PdfTemplatePreset[]>([]);
+  const [userModels, setUserModels] = useState<PdfUserModel[]>([]);
+  const [editingModel, setEditingModel] = useState<PdfUserModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        setIsLoading(true);
-        // Mock data if templates don't exist yet in the DB
-        // In a real app we would seed the DB, but since RLS and schema were just created, it might be empty
-        const covers = await pdfDesignService.getCoverTemplates();
-        
-        let loadedCovers = covers;
-        if (covers.length === 0) {
-           const mockCovers = [
-             { name: 'Clássico 1', file: 'cover-model-1.svg' },
-             { name: 'Moderno 1', file: 'cover-model-2.svg' },
-             { name: 'Elegante 1', file: 'cover-model-3.svg' },
-             { name: 'Clássico 2', file: 'cover-model-1.svg' },
-             { name: 'Moderno 2', file: 'cover-model-2.svg' },
-             { name: 'Elegante 2', file: 'cover-model-3.svg' },
-             { name: 'Clássico 3', file: 'cover-model-1.svg' },
-             { name: 'Moderno 3', file: 'cover-model-2.svg' },
-             { name: 'Elegante 3', file: 'cover-model-3.svg' },
-             { name: 'Premium 1', file: 'cover-model-1.svg' },
-           ];
-           
-           loadedCovers = mockCovers.map((c, i) => ({
-               id: String(i + 1),
-               name: `Modelo ${i + 1} (${c.name})`,
-               svg_file_url: `/pdf-assets/covers/${c.file}`,
-               thumbnail_url: null,
-               is_active: true,
-               created_at: new Date().toISOString()
-           }));
-           setCoverTemplates(loadedCovers);
-        } else {
-           setCoverTemplates(covers);
-        }
-
-        const template = await pdfDesignService.getDefaultTemplate();
-        if (template) {
-          setUserTemplate(template);
-          setPrimaryColor(template.primary_color);
-          setSecondaryColor(template.secondary_color);
-          setAccentColor(template.accent_color);
-          setBackgroundColor(template.background_color);
-          setLogoUrl(template.logo_url || '');
-          setCoverPhotoUrl(template.cover_photo_url || '');
-          const cover = loadedCovers.find(c => c.id === template.cover_template_id);
-          if (cover) setSelectedCover(cover);
-          else setSelectedCover(loadedCovers[0]);
-        } else {
-          setSelectedCover(loadedCovers[0]);
-        }
-      } catch (error) {
-        console.error('Error loading design data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    
     loadData();
-  }, []);
+  }, [user]);
 
-  const handleSave = async () => {
+  const loadData = async () => {
     if (!user) return;
-    setIsSaving(true);
     try {
-      const templateData: Partial<PdfTemplate> = {
-        id: userTemplate?.id,
-        user_id: user.id,
-        name: userTemplate?.name || 'Meu Template Padrão',
-        cover_template_id: selectedCover?.id,
-        primary_color: primaryColor,
-        secondary_color: secondaryColor,
-        accent_color: accentColor,
-        background_color: backgroundColor,
-        logo_url: logoUrl,
-        cover_photo_url: coverPhotoUrl,
-        is_default: true
-      };
-
-      const saved = await pdfDesignService.saveTemplate(templateData);
-      setUserTemplate(saved);
-      toast.success('Template salvo com sucesso!');
-    } catch (error) {
-      console.error('Error saving template:', error);
-      toast.error('Erro ao salvar o template.');
+      setIsLoading(true);
+      setPresets(pdfModelService.getPresets());
+      const models = await pdfModelService.getUserModels(user.id);
+      setUserModels(models);
+    } catch (e) {
+      toast.error('Erro ao carregar modelos');
     } finally {
-      setIsSaving(false);
+      setIsLoading(false);
     }
   };
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingLogo(true);
+  const handleAddFromPreset = async (presetId: string) => {
+    if (!user) return;
     try {
-      const url = await pdfDesignService.uploadAsset(file, 'logos');
-      setLogoUrl(url);
-    } catch (error) {
-      console.error('Error uploading logo:', error);
-      toast.error('Erro ao fazer upload da logo');
-    } finally {
-      setUploadingLogo(false);
+      const newModel = await pdfModelService.createModelFromPreset(presetId, user.id);
+      setUserModels([...userModels, newModel]);
+      toast.success('Modelo adicionado com sucesso!');
+      setEditingModel(newModel);
+    } catch (e) {
+      toast.error('Erro ao adicionar modelo');
     }
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingPhoto(true);
+  const handleDuplicate = async (modelId: string) => {
+    if (!user) return;
     try {
-      const url = await pdfDesignService.uploadAsset(file, 'backgrounds');
-      setCoverPhotoUrl(url);
-    } catch (error) {
-      console.error('Error uploading photo:', error);
-      toast.error('Erro ao fazer upload da foto');
-    } finally {
-      setUploadingPhoto(false);
+      const newModel = await pdfModelService.duplicateModel(modelId, user.id);
+      setUserModels([...userModels, newModel]);
+      toast.success('Modelo duplicado com sucesso!');
+    } catch (e) {
+      toast.error('Erro ao duplicar modelo');
+    }
+  };
+
+  const handleDelete = async (modelId: string) => {
+    try {
+      await pdfModelService.deleteModel(modelId);
+      setUserModels(userModels.filter(m => m.id !== modelId));
+      toast.success('Modelo excluído.');
+    } catch (e) {
+      toast.error('Erro ao excluir modelo');
+    }
+  };
+
+  const handleSetDefault = async (modelId: string) => {
+    try {
+      await pdfModelService.setDefaultModel(modelId);
+      loadData();
+      toast.success('Modelo definido como padrão.');
+    } catch (e) {
+      toast.error('Erro ao definir padrão');
     }
   };
 
   if (isLoading) {
-    return <div className="text-brand-dark p-8">Carregando editor...</div>;
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
+      </div>
+    );
+  }
+
+  if (editingModel) {
+    return (
+      <DesignPdfEditor 
+        model={editingModel} 
+        onClose={() => setEditingModel(null)} 
+        onSave={() => {
+          loadData();
+        }}
+      />
+    );
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-dark">Design da Proposta em PDF</h1>
-          <p className="text-slate-500">Personalize a capa e as cores do seu documento.</p>
-        </div>
-        <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-          <Save className="w-4 h-4" />
-          {isSaving ? 'Salvando...' : 'Salvar como Padrão'}
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white border border-brand-border rounded-lg p-6 space-y-6">
-            
-            {/* Escolha de Template */}
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2 text-brand-dark">
-                <LayoutTemplate className="w-4 h-4 text-[#3B82F6]" />
-                Modelo da Capa
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                {coverTemplates.map(cover => (
-                  <div 
-                    key={cover.id}
-                    onClick={() => setSelectedCover(cover)}
-                    className={`cursor-pointer p-3 border rounded-lg text-center text-sm transition-colors ${
-                      selectedCover?.id === cover.id 
-                      ? 'border-[#3B82F6] bg-[#3B82F6]/10 text-brand-dark' 
-                      : 'border-brand-border bg-black text-slate-500 hover:border-gray-300'
-                    }`}
-                  >
-                    {cover.name}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <hr className="border-brand-border" />
-
-            {/* Paleta de Cores */}
-            <div className="space-y-4">
-              <Label className="text-brand-dark">Paleta de Cores</Label>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-slate-500 mb-1 block">Cor Primária</Label>
-                  <div className="flex gap-2">
-                    <Input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-12 p-1 h-10" />
-                    <Input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="flex-1 uppercase" />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500 mb-1 block">Cor Secundária</Label>
-                  <div className="flex gap-2">
-                    <Input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-12 p-1 h-10" />
-                    <Input type="text" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="flex-1 uppercase" />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500 mb-1 block">Cor de Destaque</Label>
-                  <div className="flex gap-2">
-                    <Input type="color" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="w-12 p-1 h-10" />
-                    <Input type="text" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="flex-1 uppercase" />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500 mb-1 block">Cor de Fundo</Label>
-                  <div className="flex gap-2">
-                    <Input type="color" value={backgroundColor} onChange={e => setBackgroundColor(e.target.value)} className="w-12 p-1 h-10" />
-                    <Input type="text" value={backgroundColor} onChange={e => setBackgroundColor(e.target.value)} className="flex-1 uppercase" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <hr className="border-brand-border" />
-
-            {/* Uploads */}
-            <div className="space-y-4">
-              <div>
-                <Label className="flex items-center gap-2 text-brand-dark mb-2">
-                  <ImageIcon className="w-4 h-4 text-[#10B981]" />
-                  Logo da Empresa
-                </Label>
-                <div className="flex items-center gap-3">
-                  <Input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} className="flex-1" />
-                  {logoUrl && <div className="w-10 h-10 bg-white rounded flex items-center justify-center p-1"><img src={logoUrl} alt="Logo" className="max-w-full max-h-full" /></div>}
-                </div>
-                {uploadingLogo && <span className="text-xs text-brand-blue mt-1 block">Enviando...</span>}
-              </div>
-              
-              <div>
-                <Label className="flex items-center gap-2 text-brand-dark mb-2">
-                  <ImageIcon className="w-4 h-4 text-[#F59E0B]" />
-                  Foto da Capa (Fundo)
-                </Label>
-                <div className="flex items-center gap-3">
-                  <Input type="file" accept="image/*" onChange={handlePhotoUpload} disabled={uploadingPhoto} className="flex-1" />
-                  {coverPhotoUrl && <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden"><img src={coverPhotoUrl} alt="Cover" className="w-full h-full object-cover" /></div>}
-                </div>
-                {uploadingPhoto && <span className="text-xs text-brand-blue mt-1 block">Enviando...</span>}
-              </div>
-            </div>
-
+    <div className="max-w-6xl mx-auto space-y-12">
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-brand-primary/10 rounded-lg">
+            <LayoutTemplate className="w-6 h-6 text-brand-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-brand-dark">Modelos Padrão</h1>
+            <p className="text-slate-500">Escolha um modelo base para criar o seu design personalizado.</p>
           </div>
         </div>
         
-        <div className="lg:col-span-2">
-          <div className="bg-white border border-brand-border rounded-lg p-6 h-full flex flex-col">
-            <h2 className="text-lg font-medium text-brand-dark mb-4">Pré-visualização</h2>
-            <div className="flex-1 bg-black rounded-lg border border-brand-border flex items-center justify-center overflow-hidden">
-              <SvgPreview 
-                svgUrl={selectedCover?.svg_file_url || ''} 
-                primaryColor={primaryColor}
-                secondaryColor={secondaryColor}
-                accentColor={accentColor}
-                backgroundColor={backgroundColor}
-                logoUrl={logoUrl}
-                coverPhotoUrl={coverPhotoUrl}
-              />
+        <div className="flex overflow-x-auto pb-4 gap-6 snap-x">
+          {presets.map(preset => (
+            <div key={preset.id} className="min-w-[280px] group relative bg-white border border-brand-border rounded-xl overflow-hidden shadow-sm snap-start">
+              <div className="aspect-[1/1.414] bg-gray-100 relative">
+                {preset.thumbnail_url ? (
+                  <img src={preset.thumbnail_url} alt={preset.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-400">Sem miniatura</div>
+                )}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Button onClick={() => handleAddFromPreset(preset.id)} className="gap-2">
+                    <Plus className="w-4 h-4" /> Adicionar Modelo
+                  </Button>
+                </div>
+              </div>
+              <div className="p-4 border-t border-brand-border">
+                <h3 className="font-semibold text-brand-dark">{preset.name}</h3>
+                <div className="flex gap-2 mt-3">
+                  <div className="w-6 h-6 rounded-full border border-gray-200" style={{ backgroundColor: preset.default_theme.primary }} title="Primária" />
+                  <div className="w-6 h-6 rounded-full border border-gray-200" style={{ backgroundColor: preset.default_theme.secondary }} title="Secundária" />
+                  <div className="w-6 h-6 rounded-full border border-gray-200" style={{ backgroundColor: preset.default_theme.accent }} title="Destaque" />
+                  <div className="w-6 h-6 rounded-full border border-gray-200" style={{ backgroundColor: preset.default_theme.neutral }} title="Neutra" />
+                </div>
+              </div>
             </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-brand-primary/10 rounded-lg">
+            <Star className="w-6 h-6 text-brand-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-brand-dark">Meus Modelos</h1>
+            <p className="text-slate-500">Gerencie seus modelos de PDF personalizados.</p>
           </div>
         </div>
+
+        {userModels.length === 0 ? (
+          <div className="text-center p-12 bg-white border border-brand-border rounded-xl">
+            <LayoutTemplate className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-brand-dark">Nenhum modelo adicionado</h3>
+            <p className="text-slate-500 mt-2">Adicione um modelo padrão acima para começar a editar.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {userModels.map(model => {
+              const preset = presets.find(p => p.id === model.preset_id);
+              return (
+                <div key={model.id} className="relative bg-white border border-brand-border rounded-xl overflow-hidden shadow-sm flex flex-col">
+                  {model.is_default && (
+                    <div className="absolute top-2 left-2 z-10 bg-brand-primary text-white text-xs font-bold px-2 py-1 rounded shadow-sm">
+                      Padrão
+                    </div>
+                  )}
+                  <div className="aspect-[1/1.414] bg-gray-100 relative border-b border-brand-border">
+                    {preset?.thumbnail_url ? (
+                      <img src={preset.thumbnail_url} alt={model.name} className="w-full h-full object-cover opacity-80" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-400">Sem preview</div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                       <h3 className="font-semibold text-white truncate">{model.name}</h3>
+                    </div>
+                  </div>
+                  <div className="p-3 flex justify-between items-center bg-gray-50">
+                    <div className="flex gap-1.5">
+                      <div className="w-5 h-5 rounded-full border border-gray-200" style={{ backgroundColor: model.theme.primary }} />
+                      <div className="w-5 h-5 rounded-full border border-gray-200" style={{ backgroundColor: model.theme.secondary }} />
+                      <div className="w-5 h-5 rounded-full border border-gray-200" style={{ backgroundColor: model.theme.accent }} />
+                      <div className="w-5 h-5 rounded-full border border-gray-200" style={{ backgroundColor: model.theme.neutral }} />
+                    </div>
+                    
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="w-4 h-4 text-slate-600" />
+                        </Button>
+                      </DropdownMenu.Trigger>
+                      <DropdownMenu.Portal>
+                        <DropdownMenu.Content className="min-w-[160px] bg-white rounded-md shadow-lg p-1 border border-brand-border z-50">
+                          <DropdownMenu.Item className="flex items-center gap-2 px-2 py-2 text-sm text-brand-dark hover:bg-gray-100 rounded-sm cursor-pointer outline-none" onClick={() => setEditingModel(model)}>
+                            <Edit2 className="w-4 h-4" /> Editar
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Item className="flex items-center gap-2 px-2 py-2 text-sm text-brand-dark hover:bg-gray-100 rounded-sm cursor-pointer outline-none" onClick={() => handleDuplicate(model.id)}>
+                            <Copy className="w-4 h-4" /> Duplicar
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Item className="flex items-center gap-2 px-2 py-2 text-sm text-brand-dark hover:bg-gray-100 rounded-sm cursor-pointer outline-none" onClick={() => handleSetDefault(model.id)}>
+                            <Star className="w-4 h-4" /> Definir como Padrão
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Separator className="h-px bg-brand-border my-1" />
+                          <DropdownMenu.Item className="flex items-center gap-2 px-2 py-2 text-sm text-red-600 hover:bg-red-50 rounded-sm cursor-pointer outline-none" onClick={() => handleDelete(model.id)}>
+                            <Trash className="w-4 h-4" /> Excluir
+                          </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Portal>
+                    </DropdownMenu.Root>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

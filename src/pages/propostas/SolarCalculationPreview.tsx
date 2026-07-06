@@ -49,7 +49,7 @@ export function SolarCalculationPreview() {
 
   if (!result) {
     return (
-      <Card className="bg-white border-brand-border shadow-xl">
+      <Card className="bg-brand-surface border-brand-border shadow-xl">
         <CardHeader className="pb-3 border-b border-brand-border/50">
           <CardTitle className="text-lg text-brand-dark font-semibold">Resumo do Sistema</CardTitle>
         </CardHeader>
@@ -66,7 +66,7 @@ export function SolarCalculationPreview() {
   const formatPercent = (val: number) => (val * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
 
   return (
-    <Card className="bg-white border-brand-border shadow-xl overflow-hidden">
+    <Card className="bg-brand-surface border-brand-border shadow-xl overflow-hidden">
       <div className="bg-gradient-to-r from-brand-blue/10 to-transparent border-b border-brand-blue/20 px-6 py-4">
         <h3 className="font-semibold text-brand-blue">Resumo do Dimensionamento</h3>
       </div>

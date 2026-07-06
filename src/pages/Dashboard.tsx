@@ -134,7 +134,7 @@ export function Dashboard() {
 
       {/* Propostas Recentes Table */}
       <Card className="flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-brand-border flex justify-between items-center bg-white">
+        <div className="p-4 border-b border-brand-border flex justify-between items-center bg-brand-surface">
           <h3 className="text-sm font-medium">Propostas Recentes</h3>
           <Link to="/propostas" className="text-xs text-brand-blue hover:underline">
             Ver todas
@@ -152,7 +152,7 @@ export function Dashboard() {
                 <th className="px-4 py-3 font-medium text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="text-sm bg-white">
+            <tbody className="text-sm bg-brand-surface">
               {propostasRecentes.map((prop) => (
                 <tr key={prop.id} className="border-b border-brand-border hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-brand-dark">{prop.client?.name}</td>

@@ -75,7 +75,7 @@ export function PublicProposal() {
   if (error || !proposal) {
     return (
       <div className="min-h-screen bg-brand-gray flex flex-col items-center justify-center p-4">
-        <div className="bg-white border border-brand-border rounded-xl p-8 max-w-md w-full text-center">
+        <div className="bg-brand-surface border border-brand-border rounded-xl p-8 max-w-md w-full text-center">
           <XCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-brand-dark mb-2">Ops!</h1>
           <p className="text-slate-500">{error || 'Proposta não encontrada'}</p>
@@ -109,7 +109,7 @@ export function PublicProposal() {
         </div>
 
         {/* Card Principal */}
-        <div className="bg-white border border-brand-border rounded-xl overflow-hidden shadow-2xl">
+        <div className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden shadow-2xl">
           <div className="p-6 sm:p-8 border-b border-brand-border">
             <div className="flex justify-between items-start mb-6">
               <div>
@@ -155,7 +155,7 @@ export function PublicProposal() {
             </div>
           </div>
 
-          <div className="p-6 sm:p-8 bg-white">
+          <div className="p-6 sm:p-8 bg-brand-surface">
             <h4 className="text-lg font-medium text-brand-dark mb-6">Resumo do Sistema</h4>
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

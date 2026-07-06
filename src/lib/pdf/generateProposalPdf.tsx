@@ -3,7 +3,7 @@ import { pdf } from '@react-pdf/renderer';
 import { ProposalDocument } from '../../components/pdf/ProposalDocument';
 import { Proposal } from '../../types/proposal';
 import { supabase } from '../supabase/client';
-import { pdfDesignService } from '../../services/pdfDesignService';
+import { pdfModelService } from '../../services/pdfModelService';
 import { generateSvgCoverImage } from './utils/svgToImage';
 
 export async function generateAndUploadPdf(proposal: Proposal): Promise<string | null> {
@@ -12,18 +12,10 @@ export async function generateAndUploadPdf(proposal: Proposal): Promise<string |
     
     // Attempt to load user's default template
     try {
-      const template = await pdfDesignService.getDefaultTemplate();
-      if (template && template.cover_template_id) {
-        // Fetch the cover template details to get the SVG URL
-        const { data: cover } = await supabase
-          .from('pdf_cover_templates')
-          .select('svg_file_url')
-          .eq('id', template.cover_template_id)
-          .single();
-          
-        if (cover?.svg_file_url) {
-          coverImage = await generateSvgCoverImage(cover.svg_file_url, template, proposal);
-        }
+      const models = await pdfModelService.getUserModels(proposal.user_id);
+      const defaultModel = models.find(m => m.is_default) || models[0];
+      if (defaultModel) {
+        coverImage = await generateSvgCoverImage(defaultModel, proposal);
       }
     } catch (templateError) {
       console.warn('Could not load custom cover template, falling back to default', templateError);

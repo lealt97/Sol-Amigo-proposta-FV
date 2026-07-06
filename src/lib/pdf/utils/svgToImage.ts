@@ -1,21 +1,26 @@
+import { PdfUserModel } from '../../../types/pdfModels';
+import { pdfModelService } from '../../../services/pdfModelService';
+
 export async function generateSvgCoverImage(
-  svgUrl: string, 
-  template: any,
+  model: PdfUserModel,
   proposal: any
 ): Promise<string | null> {
   try {
-    const response = await fetch(svgUrl);
-    let svgText = await response.text();
-    
+    const preset = pdfModelService.getPreset(model.preset_id);
+    if (!preset) return null;
+
+    let svgText = preset.svg_content;
+
     // Replace colors
-    svgText = svgText.replace(/var\(--primary-color, [^)]+\)/g, template.primary_color);
-    svgText = svgText.replace(/var\(--secondary-color, [^)]+\)/g, template.secondary_color);
-    svgText = svgText.replace(/var\(--accent-color, [^)]+\)/g, template.accent_color);
-    svgText = svgText.replace(/var\(--background-color, [^)]+\)/g, template.background_color);
-    
+    svgText = svgText.replace(/var\(--pdf-primary\)/g, model.theme.primary);
+    svgText = svgText.replace(/var\(--pdf-secondary\)/g, model.theme.secondary);
+    svgText = svgText.replace(/var\(--pdf-accent\)/g, model.theme.accent);
+    svgText = svgText.replace(/var\(--pdf-neutral\)/g, model.theme.neutral);
+
     // Helper to fetch and convert image to base64
     const urlToBase64 = async (url: string) => {
       if (!url) return '';
+      if (url.startsWith('data:')) return url;
       try {
         const res = await fetch(url);
         const blob = await res.blob();
@@ -30,40 +35,66 @@ export async function generateSvgCoverImage(
       }
     };
 
-    // Replace images with Base64 to prevent SVG external resource blocking & tainted canvas
-    const logoSrc = template.logo_url ? await urlToBase64(template.logo_url) : '';
-    const photoSrc = template.cover_photo_url ? await urlToBase64(template.cover_photo_url) : '';
-    
-    svgText = svgText.replace(/var\(--logo-url, '[^']*'\)/g, logoSrc);
-    svgText = svgText.replace(/var\(--logo-url, ''\)/g, logoSrc);
-    svgText = svgText.replace(/var\(--cover-photo-url, '[^']*'\)/g, photoSrc);
-    svgText = svgText.replace(/var\(--cover-photo-url, ''\)/g, photoSrc);
-    
-    // Replace dynamic texts
+    // Parse SVG to manipulate elements
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, 'image/svg+xml');
+
+    // Images
+    const coverImage = doc.getElementById('cover-photo-image');
+    if (coverImage) {
+      if (model.cover_image_url) {
+        const b64 = await urlToBase64(model.cover_image_url);
+        coverImage.setAttribute('href', b64);
+        
+        const imgW = parseFloat(coverImage.getAttribute('width') || '794');
+        const imgH = parseFloat(coverImage.getAttribute('height') || '600');
+        const cx = imgW / 2;
+        const cy = imgH / 2;
+        const t = model.cover_image_transform;
+        coverImage.setAttribute('transform', `translate(${t.x}, ${t.y}) translate(${cx}, ${cy}) scale(${t.zoom}) rotate(${t.rotate}) translate(${-cx}, ${-cy})`);
+      }
+    }
+
+    const logoImage = doc.getElementById('company-logo');
+    if (logoImage) {
+      if (model.logo_url) {
+        const b64 = await urlToBase64(model.logo_url);
+        logoImage.setAttribute('href', b64);
+        const lt = model.logo_transform;
+        logoImage.setAttribute('transform', `translate(${lt.x}, ${lt.y}) scale(${lt.zoom})`);
+      }
+    }
+
+    // Dynamic Texts
     const clientName = proposal.client?.name || 'Cliente';
     const power = proposal.solar?.installed_power_kwp?.toFixed(2) || '0.00';
-    const city = proposal.client?.city || 'Cidade';
-    const state = proposal.client?.state || 'UF';
+    const city = proposal.client?.city || '';
+    const state = proposal.client?.state || '';
     const dateStr = new Date().toLocaleDateString('pt-BR');
-    
-    // The placeholder texts in the SVG:
-    svgText = svgText.replace(/\[Nome do Cliente\]/g, clientName);
-    svgText = svgText.replace(/\[Potência\]/g, power);
-    svgText = svgText.replace(/\[Cidade\]/g, city);
-    svgText = svgText.replace(/\[UF\]/g, state);
-    svgText = svgText.replace(/\[Data da Proposta\]/g, dateStr);
+
+    const clientNode = doc.getElementById('client-name');
+    if (clientNode) clientNode.textContent = clientNode.textContent?.replace('{client_name}', clientName) || clientName;
+
+    const powerNode = doc.getElementById('project-power');
+    if (powerNode) powerNode.textContent = powerNode.textContent?.replace('{power}', power) || `Potência: ${power} kWp`;
+
+    const cityNode = doc.getElementById('city-state');
+    if (cityNode) cityNode.textContent = cityNode.textContent?.replace('{city}', `${city} - ${state}`) || `${city} - ${state}`;
+
+    const dateNode = doc.getElementById('proposal-date');
+    if (dateNode) dateNode.textContent = dateNode.textContent?.replace('{date}', dateStr) || dateStr;
+
+    const finalSvg = new XMLSerializer().serializeToString(doc);
 
     // Render to canvas to get a PNG data URL
     return new Promise((resolve, reject) => {
-      // Must encode SVG text properly for data URL or Blob
-      const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+      const svgBlob = new Blob([finalSvg], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(svgBlob);
       const img = new Image();
       img.crossOrigin = 'Anonymous';
       
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // SVG size is 794x1123 (A4 96dpi)
         canvas.width = 794;
         canvas.height = 1123;
         const ctx = canvas.getContext('2d');
@@ -88,7 +119,6 @@ export async function generateSvgCoverImage(
       
       img.src = url;
     });
-
   } catch (err) {
     console.error('Error generating SVG cover image:', err);
     return null;

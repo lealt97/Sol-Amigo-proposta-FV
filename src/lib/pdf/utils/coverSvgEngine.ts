@@ -105,32 +105,8 @@ function setHref(element: Element | null, href: string) {
   element.setAttributeNS(XLINK_NS, 'xlink:href', href);
 }
 
-function getSvgSize(doc: Document) {
-  const svg = doc.querySelector('svg');
-  const viewBox = svg?.getAttribute('viewBox')?.split(/\s+/).map(Number);
-  if (viewBox?.length === 4 && viewBox.every(Number.isFinite)) {
-    return { width: viewBox[2], height: viewBox[3] };
-  }
-
-  return {
-    width: parseFloat(svg?.getAttribute('width') || '595'),
-    height: parseFloat(svg?.getAttribute('height') || '842'),
-  };
-}
-
-function getOrCreateDefs(doc: Document) {
-  const svg = doc.querySelector('svg');
-  let defs = doc.querySelector('defs');
-  if (!defs) {
-    defs = doc.createElementNS(SVG_NS, 'defs');
-    svg?.appendChild(defs);
-  }
-  return defs;
-}
-
-function getFillPatternId(element: Element | null) {
-  const fill = element?.getAttribute('fill') || '';
-  const match = fill.match(/url\(#([^\)]+)\)/);
+function getPatternIdFromFill(fill: string | null) {
+  const match = fill?.match(/url\(#([^\)]+)\)/);
   return match?.[1] || null;
 }
 
@@ -147,118 +123,87 @@ function isSvgShape(element: Element | null) {
 function findPhotoShape(doc: Document) {
   const byId = Array.from(doc.querySelectorAll('[id]')).find(isPhotoId) || null;
 
-  if (byId && isSvgShape(byId) && getFillPatternId(byId)) {
-    return { shape: byId, container: byId.parentElement };
+  if (byId && isSvgShape(byId) && getPatternIdFromFill(byId.getAttribute('fill'))) {
+    return byId;
   }
 
   const childShape = byId?.querySelector('[fill^="url(#pattern"], [fill^="url(#"]') || null;
-  if (childShape) {
-    return { shape: childShape, container: byId };
-  }
+  if (childShape) return childShape;
 
-  const fallbackShape = doc.querySelector('[fill^="url(#pattern"], [fill^="url(#"]');
-  return { shape: fallbackShape, container: fallbackShape?.parentElement || null };
+  return doc.querySelector('[fill^="url(#pattern"], [fill^="url(#"]');
 }
 
-function findPatternImageOrUse(doc: Document, patternId: string | null) {
+function getPatternElement(doc: Document, patternId: string | null) {
   if (!patternId) return null;
-  const pattern = doc.getElementById(patternId);
-  if (!pattern) return null;
-
-  const image = pattern.querySelector('image');
-  if (image) return image;
-
-  const use = pattern.querySelector('use');
-  const href = use?.getAttribute('href') || use?.getAttribute('xlink:href');
-  const referencedId = href?.startsWith('#') ? href.slice(1) : null;
-  return referencedId ? doc.getElementById(referencedId) : null;
+  return doc.getElementById(patternId);
 }
 
-function applyTransform(element: Element, transform?: TransformConfig) {
-  if (!transform) return;
-  const width = parseFloat(element.getAttribute('width') || '595');
-  const height = parseFloat(element.getAttribute('height') || '842');
-  const cx = width / 2;
-  const cy = height / 2;
-  element.setAttribute('transform', `translate(${transform.x}, ${transform.y}) translate(${cx}, ${cy}) scale(${transform.zoom}) rotate(${transform.rotate}) translate(${-cx}, ${-cy})`);
+function removePatternChildren(pattern: Element) {
+  while (pattern.firstChild) {
+    pattern.removeChild(pattern.firstChild);
+  }
+}
+
+function normalizePatternAsFigmaFill(pattern: Element) {
+  pattern.setAttribute('patternContentUnits', 'objectBoundingBox');
+  pattern.setAttribute('width', '1');
+  pattern.setAttribute('height', '1');
+  pattern.removeAttribute('patternTransform');
+}
+
+function getImageFillTransform(transform?: TransformConfig) {
+  const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
+  const x = Number(transform?.x ?? 0) / 595;
+  const y = Number(transform?.y ?? 0) / 842;
+  const left = ((1 - zoom) / 2) + x;
+  const top = ((1 - zoom) / 2) + y;
+  const rotate = Number(transform?.rotate ?? 0);
+
+  if (!rotate) return { x: left, y: top, width: zoom, height: zoom, transform: '' };
+
+  return {
+    x: left,
+    y: top,
+    width: zoom,
+    height: zoom,
+    transform: `rotate(${rotate} 0.5 0.5)`,
+  };
+}
+
+function applyPhotoAsFigmaFill(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
+  if (!imageUrl) return;
+
+  const shape = findPhotoShape(doc);
+  const patternId = getPatternIdFromFill(shape?.getAttribute('fill') || null);
+  const pattern = getPatternElement(doc, patternId);
+
+  if (!shape || !pattern) return;
+
+  normalizePatternAsFigmaFill(pattern);
+  removePatternChildren(pattern);
+
+  const fill = getImageFillTransform(transform);
+  const image = doc.createElementNS(SVG_NS, 'image');
+  image.setAttribute('id', 'cover-photo-image');
+  image.setAttribute('data-pdf-role', 'cover-photo-image');
+  image.setAttribute('x', String(fill.x));
+  image.setAttribute('y', String(fill.y));
+  image.setAttribute('width', String(fill.width));
+  image.setAttribute('height', String(fill.height));
+  image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  if (fill.transform) image.setAttribute('transform', fill.transform);
+  setHref(image, imageUrl);
+
+  pattern.appendChild(image);
+  shape.setAttribute('id', 'cover-photo-shape');
+  shape.setAttribute('data-pdf-role', 'cover-photo-shape');
+  hidePhotoIcon(doc);
 }
 
 function hidePhotoIcon(doc: Document) {
   doc.querySelectorAll('[id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
     element.setAttribute('display', 'none');
   });
-}
-
-function insertCoverPhoto(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
-  if (!imageUrl) return;
-
-  const { shape, container } = findPhotoShape(doc);
-  const patternId = getFillPatternId(shape);
-  const patternImage = findPatternImageOrUse(doc, patternId);
-
-  if (patternImage) {
-    setHref(patternImage, imageUrl);
-    patternImage.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-  }
-
-  if (!shape || !container) {
-    if (patternImage) {
-      applyTransform(patternImage, transform);
-      hidePhotoIcon(doc);
-    }
-    return;
-  }
-
-  const d = shape.getAttribute('d');
-  if (!d || shape.tagName.toLowerCase() !== 'path') {
-    shape.setAttribute('id', 'cover-photo-shape');
-    shape.setAttribute('data-pdf-role', 'cover-photo-shape');
-    setHref(patternImage, imageUrl);
-    hidePhotoIcon(doc);
-    return;
-  }
-
-  const clipId = `cover-photo-clip-${Math.random().toString(36).slice(2, 8)}`;
-  const defs = getOrCreateDefs(doc);
-  const clipPath = doc.createElementNS(SVG_NS, 'clipPath');
-  clipPath.setAttribute('id', clipId);
-  clipPath.setAttribute('clipPathUnits', 'userSpaceOnUse');
-
-  const clipShape = doc.createElementNS(SVG_NS, 'path');
-  clipShape.setAttribute('d', d);
-  clipShape.setAttribute('fill-rule', shape.getAttribute('fill-rule') || 'evenodd');
-  clipShape.setAttribute('clip-rule', shape.getAttribute('clip-rule') || 'evenodd');
-  clipPath.appendChild(clipShape);
-  defs.appendChild(clipPath);
-
-  const size = getSvgSize(doc);
-  const image = doc.createElementNS(SVG_NS, 'image');
-  image.setAttribute('id', 'cover-photo-image');
-  image.setAttribute('data-pdf-role', 'cover-photo-image');
-  image.setAttribute('x', '0');
-  image.setAttribute('y', '0');
-  image.setAttribute('width', String(size.width));
-  image.setAttribute('height', String(size.height));
-  image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-  image.setAttribute('clip-path', `url(#${clipId})`);
-  setHref(image, imageUrl);
-  applyTransform(image, transform);
-
-  shape.setAttribute('id', 'cover-photo-shape');
-  shape.setAttribute('data-pdf-role', 'cover-photo-shape');
-  shape.setAttribute('display', 'none');
-  container.setAttribute('data-pdf-role', 'cover-photo');
-
-  const overlay = Array.from(container.children).find((child) => child !== shape && (child.getAttribute('fill') || '').startsWith('url(#paint'));
-  if (overlay && overlay.parentElement === container) {
-    container.insertBefore(image, overlay);
-  } else if (shape.parentElement === container) {
-    container.insertBefore(image, shape.nextSibling);
-  } else {
-    container.appendChild(image);
-  }
-
-  hidePhotoIcon(doc);
 }
 
 function replaceLogo(doc: Document, logoUrl?: string | null, transform?: TransformConfig) {
@@ -313,7 +258,7 @@ export function buildCoverSvg(svgSource: string, theme: CoverTheme, values: Cove
 
   applyTheme(doc, theme);
   applyTexts(doc, values);
-  insertCoverPhoto(doc, values.coverImageUrl, values.coverImageTransform);
+  applyPhotoAsFigmaFill(doc, values.coverImageUrl, values.coverImageTransform);
   replaceLogo(doc, values.logoUrl, values.logoTransform);
 
   return new XMLSerializer().serializeToString(doc);

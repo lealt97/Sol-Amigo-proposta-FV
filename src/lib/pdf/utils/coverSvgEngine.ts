@@ -144,14 +144,15 @@ function removePatternChildren(pattern: Element) {
   }
 }
 
-function normalizePatternAsFigmaFill(pattern: Element) {
+function normalizePatternAsFigmaCrop(pattern: Element) {
   pattern.setAttribute('patternContentUnits', 'objectBoundingBox');
   pattern.setAttribute('width', '1');
   pattern.setAttribute('height', '1');
+  pattern.setAttribute('data-pdf-image-mode', 'crop');
   pattern.removeAttribute('patternTransform');
 }
 
-function getImageFillTransform(transform?: TransformConfig) {
+function getImageCropTransform(transform?: TransformConfig) {
   const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
   const x = Number(transform?.x ?? 0) / 595;
   const y = Number(transform?.y ?? 0) / 842;
@@ -170,7 +171,7 @@ function getImageFillTransform(transform?: TransformConfig) {
   };
 }
 
-function applyPhotoAsFigmaFill(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
+function applyPhotoAsFigmaCrop(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
   if (!imageUrl) return;
 
   const shape = findPhotoShape(doc);
@@ -179,24 +180,26 @@ function applyPhotoAsFigmaFill(doc: Document, imageUrl?: string | null, transfor
 
   if (!shape || !pattern) return;
 
-  normalizePatternAsFigmaFill(pattern);
+  normalizePatternAsFigmaCrop(pattern);
   removePatternChildren(pattern);
 
-  const fill = getImageFillTransform(transform);
+  const crop = getImageCropTransform(transform);
   const image = doc.createElementNS(SVG_NS, 'image');
   image.setAttribute('id', 'cover-photo-image');
   image.setAttribute('data-pdf-role', 'cover-photo-image');
-  image.setAttribute('x', String(fill.x));
-  image.setAttribute('y', String(fill.y));
-  image.setAttribute('width', String(fill.width));
-  image.setAttribute('height', String(fill.height));
+  image.setAttribute('data-pdf-image-mode', 'crop');
+  image.setAttribute('x', String(crop.x));
+  image.setAttribute('y', String(crop.y));
+  image.setAttribute('width', String(crop.width));
+  image.setAttribute('height', String(crop.height));
   image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-  if (fill.transform) image.setAttribute('transform', fill.transform);
+  if (crop.transform) image.setAttribute('transform', crop.transform);
   setHref(image, imageUrl);
 
   pattern.appendChild(image);
   shape.setAttribute('id', 'cover-photo-shape');
   shape.setAttribute('data-pdf-role', 'cover-photo-shape');
+  shape.setAttribute('data-pdf-image-mode', 'crop');
   hidePhotoIcon(doc);
 }
 
@@ -258,7 +261,7 @@ export function buildCoverSvg(svgSource: string, theme: CoverTheme, values: Cove
 
   applyTheme(doc, theme);
   applyTexts(doc, values);
-  applyPhotoAsFigmaFill(doc, values.coverImageUrl, values.coverImageTransform);
+  applyPhotoAsFigmaCrop(doc, values.coverImageUrl, values.coverImageTransform);
   replaceLogo(doc, values.logoUrl, values.logoTransform);
 
   return new XMLSerializer().serializeToString(doc);

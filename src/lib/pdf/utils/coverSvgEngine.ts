@@ -16,6 +16,13 @@ type CoverTheme = {
   original?: PdfTheme;
 };
 
+type ShapeBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
 
@@ -144,30 +151,117 @@ function removePatternChildren(pattern: Element) {
   }
 }
 
-function normalizePatternAsFigmaCrop(pattern: Element) {
-  pattern.setAttribute('patternContentUnits', 'objectBoundingBox');
-  pattern.setAttribute('width', '1');
-  pattern.setAttribute('height', '1');
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function parseNumbers(value: string | null) {
+  if (!value) return [];
+  return (value.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi) || []).map(Number).filter(Number.isFinite);
+}
+
+function boundsFromPoints(points: Array<[number, number]>): ShapeBounds | null {
+  if (!points.length) return null;
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) return null;
+  if (maxX <= minX || maxY <= minY) return null;
+
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+function getSvgBounds(doc: Document): ShapeBounds {
+  const svg = doc.querySelector('svg');
+  const viewBox = parseNumbers(svg?.getAttribute('viewBox') || null);
+  if (viewBox.length >= 4) {
+    return { x: viewBox[0], y: viewBox[1], width: viewBox[2], height: viewBox[3] };
+  }
+
+  return {
+    x: 0,
+    y: 0,
+    width: parseFloat(svg?.getAttribute('width') || '595'),
+    height: parseFloat(svg?.getAttribute('height') || '842'),
+  };
+}
+
+function getShapeBounds(shape: Element, doc: Document): ShapeBounds {
+  const tagName = shape.tagName.toLowerCase();
+
+  if (tagName === 'rect' || tagName === 'image') {
+    const x = parseFloat(shape.getAttribute('x') || '0');
+    const y = parseFloat(shape.getAttribute('y') || '0');
+    const width = parseFloat(shape.getAttribute('width') || '0');
+    const height = parseFloat(shape.getAttribute('height') || '0');
+    if (width > 0 && height > 0) return { x, y, width, height };
+  }
+
+  if (tagName === 'circle') {
+    const cx = parseFloat(shape.getAttribute('cx') || '0');
+    const cy = parseFloat(shape.getAttribute('cy') || '0');
+    const r = parseFloat(shape.getAttribute('r') || '0');
+    if (r > 0) return { x: cx - r, y: cy - r, width: r * 2, height: r * 2 };
+  }
+
+  if (tagName === 'ellipse') {
+    const cx = parseFloat(shape.getAttribute('cx') || '0');
+    const cy = parseFloat(shape.getAttribute('cy') || '0');
+    const rx = parseFloat(shape.getAttribute('rx') || '0');
+    const ry = parseFloat(shape.getAttribute('ry') || '0');
+    if (rx > 0 && ry > 0) return { x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 };
+  }
+
+  const rawNumbers = parseNumbers(shape.getAttribute(tagName === 'path' ? 'd' : 'points'));
+  const points: Array<[number, number]> = [];
+  for (let index = 0; index < rawNumbers.length - 1; index += 2) {
+    points.push([rawNumbers[index], rawNumbers[index + 1]]);
+  }
+
+  return boundsFromPoints(points) || getSvgBounds(doc);
+}
+
+function normalizePatternAsFigmaCrop(pattern: Element, bounds: ShapeBounds) {
+  pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+  pattern.setAttribute('patternContentUnits', 'userSpaceOnUse');
+  pattern.setAttribute('x', String(bounds.x));
+  pattern.setAttribute('y', String(bounds.y));
+  pattern.setAttribute('width', String(bounds.width));
+  pattern.setAttribute('height', String(bounds.height));
   pattern.setAttribute('data-pdf-image-mode', 'crop');
+  pattern.setAttribute('overflow', 'hidden');
   pattern.removeAttribute('patternTransform');
 }
 
-function getImageCropTransform(transform?: TransformConfig) {
-  const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
-  const x = Number(transform?.x ?? 0) / 595;
-  const y = Number(transform?.y ?? 0) / 842;
-  const left = ((1 - zoom) / 2) + x;
-  const top = ((1 - zoom) / 2) + y;
+function getImageCropTransform(bounds: ShapeBounds, transform?: TransformConfig) {
+  const zoom = Math.max(1, Number(transform?.zoom ?? 1));
   const rotate = Number(transform?.rotate ?? 0);
+  const width = bounds.width * zoom;
+  const height = bounds.height * zoom;
 
-  if (!rotate) return { x: left, y: top, width: zoom, height: zoom, transform: '' };
+  let x = bounds.x + (bounds.width - width) / 2;
+  let y = bounds.y + (bounds.height - height) / 2;
+
+  if (zoom > 1) {
+    x += (Number(transform?.x ?? 0) / 595) * bounds.width;
+    y += (Number(transform?.y ?? 0) / 842) * bounds.height;
+    x = clamp(x, bounds.x + bounds.width - width, bounds.x);
+    y = clamp(y, bounds.y + bounds.height - height, bounds.y);
+  }
+
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
 
   return {
-    x: left,
-    y: top,
-    width: zoom,
-    height: zoom,
-    transform: `rotate(${rotate} 0.5 0.5)`,
+    x,
+    y,
+    width,
+    height,
+    transform: rotate ? `rotate(${rotate} ${centerX} ${centerY})` : '',
   };
 }
 
@@ -180,10 +274,11 @@ function applyPhotoAsFigmaCrop(doc: Document, imageUrl?: string | null, transfor
 
   if (!shape || !pattern) return;
 
-  normalizePatternAsFigmaCrop(pattern);
+  const bounds = getShapeBounds(shape, doc);
+  normalizePatternAsFigmaCrop(pattern, bounds);
   removePatternChildren(pattern);
 
-  const crop = getImageCropTransform(transform);
+  const crop = getImageCropTransform(bounds, transform);
   const image = doc.createElementNS(SVG_NS, 'image');
   image.setAttribute('id', 'cover-photo-image');
   image.setAttribute('data-pdf-role', 'cover-photo-image');
@@ -192,7 +287,7 @@ function applyPhotoAsFigmaCrop(doc: Document, imageUrl?: string | null, transfor
   image.setAttribute('y', String(crop.y));
   image.setAttribute('width', String(crop.width));
   image.setAttribute('height', String(crop.height));
-  image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   if (crop.transform) image.setAttribute('transform', crop.transform);
   setHref(image, imageUrl);
 

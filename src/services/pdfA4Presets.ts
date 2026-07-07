@@ -1,9 +1,14 @@
 import { PdfTemplatePreset } from '../types/pdfModels';
-import { DEFAULT_PDF_PAGE_ORDER, DEFAULT_PDF_VISIBLE_PAGES } from '../lib/pdf/pageConfig';
 
 const pageConfig = {
-  order: DEFAULT_PDF_PAGE_ORDER,
-  visiblePages: DEFAULT_PDF_VISIBLE_PAGES,
+  order: ['cover', 'intro', 'technical', 'financial', 'payback'],
+  visiblePages: {
+    cover: true,
+    intro: true,
+    technical: true,
+    financial: true,
+    payback: true,
+  },
 };
 
 const coverPath = (fileName: string) => `/pdf-assets/covers/${fileName}`;

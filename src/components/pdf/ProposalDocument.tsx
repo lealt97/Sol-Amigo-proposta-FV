@@ -1,8 +1,6 @@
 import React from 'react';
 import { Document, Page, StyleSheet, Image } from '@react-pdf/renderer';
 import { Proposal } from '../../types/proposal';
-import { PdfPageConfig } from '../../types/pdfModels';
-import { normalizePdfPageConfig } from '../../lib/pdf/pageConfig';
 import { CoverPage } from './sections/CoverPage';
 import { ExecutiveSummary } from './sections/ExecutiveSummary';
 import { TechnicalSection } from './sections/TechnicalSection';
@@ -31,37 +29,36 @@ const styles = StyleSheet.create({
 interface ProposalDocumentProps {
   proposal: Proposal;
   coverImage?: string | null;
-  pageConfig?: PdfPageConfig | null;
 }
 
-function renderPageContent(pageId: string, proposal: Proposal, coverImage?: string | null) {
-  if (pageId === 'cover') {
-    return coverImage ? <Image src={coverImage} style={styles.coverImage} /> : <CoverPage proposal={proposal} />;
-  }
-
-  if (pageId === 'intro') return <ExecutiveSummary proposal={proposal} />;
-  if (pageId === 'technical') return <TechnicalSection proposal={proposal} />;
-  if (pageId === 'financial') return <FinancialSection proposal={proposal} />;
-  if (pageId === 'payback') return <PaybackSection proposal={proposal} />;
-  if (pageId === 'terms') return <TermsSection proposal={proposal} />;
-  if (pageId === 'acceptance') return <AcceptanceSection proposal={proposal} />;
-  return null;
-}
-
-export const ProposalDocument: React.FC<ProposalDocumentProps> = ({ proposal, coverImage, pageConfig }) => {
-  const normalizedConfig = normalizePdfPageConfig(pageConfig);
-  const visiblePages = normalizedConfig.order.filter(pageId => normalizedConfig.visiblePages?.[pageId] !== false);
-
+export const ProposalDocument: React.FC<ProposalDocumentProps> = ({ proposal, coverImage }) => {
   return (
     <Document>
-      {visiblePages.map(pageId => {
-        const isCover = pageId === 'cover';
-        return (
-          <Page key={pageId} size="A4" style={isCover ? styles.page : [styles.page, styles.section]}>
-            {renderPageContent(pageId, proposal, coverImage)}
-          </Page>
-        );
-      })}
+      <Page size="A4" style={styles.page}>
+        {coverImage ? (
+          <Image src={coverImage} style={styles.coverImage} />
+        ) : (
+          <CoverPage proposal={proposal} />
+        )}
+      </Page>
+      
+      <Page size="A4" style={[styles.page, styles.section]}>
+        <ExecutiveSummary proposal={proposal} />
+      </Page>
+      
+      <Page size="A4" style={[styles.page, styles.section]}>
+        <TechnicalSection proposal={proposal} />
+      </Page>
+      
+      <Page size="A4" style={[styles.page, styles.section]}>
+        <FinancialSection proposal={proposal} />
+        <PaybackSection proposal={proposal} />
+      </Page>
+      
+      <Page size="A4" style={[styles.page, styles.section]}>
+        <TermsSection proposal={proposal} />
+        <AcceptanceSection proposal={proposal} />
+      </Page>
     </Document>
   );
 };

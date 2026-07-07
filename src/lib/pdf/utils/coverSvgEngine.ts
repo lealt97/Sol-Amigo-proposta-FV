@@ -16,6 +16,9 @@ type CoverTheme = {
   original?: PdfTheme;
 };
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
+
 const COLOR_ALIASES: Record<string, keyof PdfTheme> = {
   '#0A2249': 'primary',
   '#051225': 'primary',
@@ -99,20 +102,76 @@ function applyTheme(doc: Document, theme: CoverTheme) {
 function setHref(element: Element | null, href: string) {
   if (!element || !href) return;
   element.setAttribute('href', href);
-  element.setAttribute('xlink:href', href);
+  element.setAttributeNS(XLINK_NS, 'xlink:href', href);
 }
 
-function findPhotoPatternImage(doc: Document) {
-  const photoGroup = Array.from(doc.querySelectorAll('[id]')).find((element) => {
-    const id = element.getAttribute('id')?.toLowerCase() || '';
-    return id.includes('foto') || id.includes('cover-photo');
-  });
+function getSvgSize(doc: Document) {
+  const svg = doc.querySelector('svg');
+  const viewBox = svg?.getAttribute('viewBox')?.split(/\s+/).map(Number);
+  if (viewBox?.length === 4 && viewBox.every(Number.isFinite)) {
+    return { width: viewBox[2], height: viewBox[3] };
+  }
 
-  const shapeWithPattern = photoGroup?.querySelector('[fill^="url(#"]') || doc.querySelector('[fill^="url(#pattern"]');
-  const fill = shapeWithPattern?.getAttribute('fill') || '';
+  return {
+    width: parseFloat(svg?.getAttribute('width') || '595'),
+    height: parseFloat(svg?.getAttribute('height') || '842'),
+  };
+}
+
+function getOrCreateDefs(doc: Document) {
+  const svg = doc.querySelector('svg');
+  let defs = doc.querySelector('defs');
+  if (!defs) {
+    defs = doc.createElementNS(SVG_NS, 'defs');
+    svg?.appendChild(defs);
+  }
+  return defs;
+}
+
+function getFillPatternId(element: Element | null) {
+  const fill = element?.getAttribute('fill') || '';
   const match = fill.match(/url\(#([^\)]+)\)/);
-  const patternId = match?.[1];
-  return patternId ? doc.querySelector(`#${CSS.escape(patternId)} image`) : doc.querySelector('pattern image');
+  return match?.[1] || null;
+}
+
+function isPhotoId(element: Element) {
+  const id = element.getAttribute('id')?.toLowerCase() || '';
+  return id.includes('foto_aqui') || id.includes('foto aqui') || id.includes('cover-photo');
+}
+
+function isSvgShape(element: Element | null) {
+  if (!element) return false;
+  return ['path', 'rect', 'polygon', 'polyline', 'circle', 'ellipse'].includes(element.tagName.toLowerCase());
+}
+
+function findPhotoShape(doc: Document) {
+  const byId = Array.from(doc.querySelectorAll('[id]')).find(isPhotoId) || null;
+
+  if (byId && isSvgShape(byId) && getFillPatternId(byId)) {
+    return { shape: byId, container: byId.parentElement };
+  }
+
+  const childShape = byId?.querySelector('[fill^="url(#pattern"], [fill^="url(#"]') || null;
+  if (childShape) {
+    return { shape: childShape, container: byId };
+  }
+
+  const fallbackShape = doc.querySelector('[fill^="url(#pattern"], [fill^="url(#"]');
+  return { shape: fallbackShape, container: fallbackShape?.parentElement || null };
+}
+
+function findPatternImageOrUse(doc: Document, patternId: string | null) {
+  if (!patternId) return null;
+  const pattern = doc.getElementById(patternId);
+  if (!pattern) return null;
+
+  const image = pattern.querySelector('image');
+  if (image) return image;
+
+  const use = pattern.querySelector('use');
+  const href = use?.getAttribute('href') || use?.getAttribute('xlink:href');
+  const referencedId = href?.startsWith('#') ? href.slice(1) : null;
+  return referencedId ? doc.getElementById(referencedId) : null;
 }
 
 function applyTransform(element: Element, transform?: TransformConfig) {
@@ -125,9 +184,81 @@ function applyTransform(element: Element, transform?: TransformConfig) {
 }
 
 function hidePhotoIcon(doc: Document) {
-  doc.querySelectorAll('[id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"]').forEach((element) => {
+  doc.querySelectorAll('[id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
     element.setAttribute('display', 'none');
   });
+}
+
+function insertCoverPhoto(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
+  if (!imageUrl) return;
+
+  const { shape, container } = findPhotoShape(doc);
+  const patternId = getFillPatternId(shape);
+  const patternImage = findPatternImageOrUse(doc, patternId);
+
+  if (patternImage) {
+    setHref(patternImage, imageUrl);
+    patternImage.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  }
+
+  if (!shape || !container) {
+    if (patternImage) {
+      applyTransform(patternImage, transform);
+      hidePhotoIcon(doc);
+    }
+    return;
+  }
+
+  const d = shape.getAttribute('d');
+  if (!d || shape.tagName.toLowerCase() !== 'path') {
+    shape.setAttribute('id', 'cover-photo-shape');
+    shape.setAttribute('data-pdf-role', 'cover-photo-shape');
+    setHref(patternImage, imageUrl);
+    hidePhotoIcon(doc);
+    return;
+  }
+
+  const clipId = `cover-photo-clip-${Math.random().toString(36).slice(2, 8)}`;
+  const defs = getOrCreateDefs(doc);
+  const clipPath = doc.createElementNS(SVG_NS, 'clipPath');
+  clipPath.setAttribute('id', clipId);
+  clipPath.setAttribute('clipPathUnits', 'userSpaceOnUse');
+
+  const clipShape = doc.createElementNS(SVG_NS, 'path');
+  clipShape.setAttribute('d', d);
+  clipShape.setAttribute('fill-rule', shape.getAttribute('fill-rule') || 'evenodd');
+  clipShape.setAttribute('clip-rule', shape.getAttribute('clip-rule') || 'evenodd');
+  clipPath.appendChild(clipShape);
+  defs.appendChild(clipPath);
+
+  const size = getSvgSize(doc);
+  const image = doc.createElementNS(SVG_NS, 'image');
+  image.setAttribute('id', 'cover-photo-image');
+  image.setAttribute('data-pdf-role', 'cover-photo-image');
+  image.setAttribute('x', '0');
+  image.setAttribute('y', '0');
+  image.setAttribute('width', String(size.width));
+  image.setAttribute('height', String(size.height));
+  image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  image.setAttribute('clip-path', `url(#${clipId})`);
+  setHref(image, imageUrl);
+  applyTransform(image, transform);
+
+  shape.setAttribute('id', 'cover-photo-shape');
+  shape.setAttribute('data-pdf-role', 'cover-photo-shape');
+  shape.setAttribute('display', 'none');
+  container.setAttribute('data-pdf-role', 'cover-photo');
+
+  const overlay = Array.from(container.children).find((child) => child !== shape && (child.getAttribute('fill') || '').startsWith('url(#paint'));
+  if (overlay && overlay.parentElement === container) {
+    container.insertBefore(image, overlay);
+  } else if (shape.parentElement === container) {
+    container.insertBefore(image, shape.nextSibling);
+  } else {
+    container.appendChild(image);
+  }
+
+  hidePhotoIcon(doc);
 }
 
 function replaceLogo(doc: Document, logoUrl?: string | null, transform?: TransformConfig) {
@@ -140,10 +271,9 @@ function replaceLogo(doc: Document, logoUrl?: string | null, transform?: Transfo
 
   if (!logoText) return;
 
-  const image = doc.createElementNS('http://www.w3.org/2000/svg', 'image');
+  const image = doc.createElementNS(SVG_NS, 'image');
   image.setAttribute('id', 'company-logo');
-  image.setAttribute('href', logoUrl);
-  image.setAttribute('xlink:href', logoUrl);
+  setHref(image, logoUrl);
   image.setAttribute('x', '32');
   image.setAttribute('y', '32');
   image.setAttribute('width', '140');
@@ -183,15 +313,7 @@ export function buildCoverSvg(svgSource: string, theme: CoverTheme, values: Cove
 
   applyTheme(doc, theme);
   applyTexts(doc, values);
-
-  const photoImage = findPhotoPatternImage(doc);
-  if (photoImage && values.coverImageUrl) {
-    setHref(photoImage, values.coverImageUrl);
-    photoImage.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-    applyTransform(photoImage, values.coverImageTransform);
-    hidePhotoIcon(doc);
-  }
-
+  insertCoverPhoto(doc, values.coverImageUrl, values.coverImageTransform);
   replaceLogo(doc, values.logoUrl, values.logoTransform);
 
   return new XMLSerializer().serializeToString(doc);

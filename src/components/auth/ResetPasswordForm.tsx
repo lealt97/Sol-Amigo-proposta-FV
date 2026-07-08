@@ -13,6 +13,7 @@ export function ResetPasswordForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
+  const pendingPassword = localStorage.getItem('pending_new_password') || '';
 
   const {
     register,
@@ -20,6 +21,10 @@ export function ResetPasswordForm() {
     formState: { errors, isSubmitting },
   } = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      password: pendingPassword,
+      confirmPassword: pendingPassword,
+    }
   });
 
   const onSubmit = async (data: ResetPasswordFormValues) => {
@@ -34,6 +39,7 @@ export function ResetPasswordForm() {
       return;
     }
 
+    localStorage.removeItem('pending_new_password');
     setSuccess(true);
     setTimeout(() => {
       navigate('/dashboard');
@@ -64,6 +70,12 @@ export function ResetPasswordForm() {
           {error && (
             <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-md">
               {error}
+            </div>
+          )}
+          {pendingPassword && (
+            <div className="p-3 text-xs text-brand-blue bg-blue-50 border border-blue-100 rounded-lg">
+              <p className="font-semibold">Senha Pré-carregada</p>
+              <p className="mt-1 opacity-90">A nova senha solicitada nas Configurações foi carregada automaticamente. Basta clicar em <strong>Atualizar Senha</strong> abaixo para concluir com segurança!</p>
             </div>
           )}
           <div className="space-y-2">

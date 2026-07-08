@@ -40,8 +40,10 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
           </Route>
+
+          {/* Reset Password (Accessible both with or without a recovery session) */}
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected Routes (Require Login, Uses Main Layout) */}
           <Route element={<ProtectedRoute />}>

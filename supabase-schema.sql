@@ -471,3 +471,17 @@ CREATE POLICY "Users can update their own models" ON public.pdf_user_models
 CREATE POLICY "Users can delete their own models" ON public.pdf_user_models
   FOR DELETE USING (auth.uid() = user_id);
 
+-- 7. USER ACCOUNT DELETION FUNCTION (RPC)
+-- Permite que usuários autenticados excluam sua própria conta com segurança
+CREATE OR REPLACE FUNCTION public.delete_user_account()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  DELETE FROM auth.users WHERE id = auth.uid();
+END;
+$$;
+
+

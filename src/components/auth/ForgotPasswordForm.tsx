@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/Card';
+import { translateAuthError } from '../../lib/utils';
 
 export function ForgotPasswordForm() {
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export function ForgotPasswordForm() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(translateAuthError(error.message));
       return;
     }
 

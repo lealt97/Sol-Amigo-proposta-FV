@@ -155,7 +155,17 @@ function clearElement(element: Element) {
 function hidePhotoPlaceholder(doc: Document) {
   doc.querySelectorAll('[id*="foto_aqui_placeholder"], [id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
     element.setAttribute('display', 'none');
+    element.setAttribute('opacity', '0');
   });
+}
+
+function moveLayerAbovePlaceholder(layer: Element) {
+  const parent = layer.parentElement;
+  if (!parent) return;
+
+  if (parent.lastElementChild !== layer) {
+    parent.appendChild(layer);
+  }
 }
 
 function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
@@ -168,6 +178,8 @@ function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transfor
   const bounds = parseBounds(coverGroup?.getAttribute('data-photo-bounds') || null) || { x: 0, y: 0, width: 595, height: 842 };
   const crop = getImageTransform(bounds, transform);
 
+  hidePhotoPlaceholder(doc);
+  moveLayerAbovePlaceholder(layer);
   clearElement(layer);
 
   const image = doc.createElementNS(SVG_NS, 'image');
@@ -179,11 +191,14 @@ function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transfor
   image.setAttribute('width', String(crop.width));
   image.setAttribute('height', String(crop.height));
   image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  image.setAttribute('display', 'block');
+  image.setAttribute('opacity', '1');
+  image.setAttribute('crossorigin', 'anonymous');
   if (crop.transform) image.setAttribute('transform', crop.transform);
   setHref(image, imageUrl);
 
   layer.appendChild(image);
-  hidePhotoPlaceholder(doc);
+  coverGroup?.setAttribute('data-photo-applied', 'true');
   return true;
 }
 
@@ -228,6 +243,9 @@ function applyPhotoAsPattern(doc: Document, imageUrl?: string | null, transform?
   image.setAttribute('width', String(zoom));
   image.setAttribute('height', String(zoom));
   image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  image.setAttribute('display', 'block');
+  image.setAttribute('opacity', '1');
+  image.setAttribute('crossorigin', 'anonymous');
   if (rotate) image.setAttribute('transform', `rotate(${rotate} 0.5 0.5)`);
   setHref(image, imageUrl);
 
@@ -255,6 +273,9 @@ function replaceLogo(doc: Document, logoUrl?: string | null, transform?: Transfo
   image.setAttribute('width', '140');
   image.setAttribute('height', '64');
   image.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+  image.setAttribute('display', 'block');
+  image.setAttribute('opacity', '1');
+  image.setAttribute('crossorigin', 'anonymous');
   if (transform) image.setAttribute('transform', `translate(${transform.x}, ${transform.y}) scale(${transform.zoom}) rotate(${transform.rotate})`);
 
   logoElement.setAttribute('display', 'none');

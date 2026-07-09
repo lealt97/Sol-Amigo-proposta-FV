@@ -23,6 +23,15 @@ body {
   background-color: var(--color-brand-gray);
   color: var(--color-brand-dark);
 }
+
+button,
+a,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="file"]::file-selector-button {
+  cursor: pointer !important;
+}
 @theme {
   --color-gray-900: #F8FAFC;
   --color-gray-800: #F1F5F9;

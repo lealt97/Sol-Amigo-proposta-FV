@@ -1,6 +1,7 @@
 import { PdfUserModel } from '../../../types/pdfModels';
 import { pdfModelService } from '../../../services/pdfModelService';
 import { buildCoverSvg } from './coverSvgEngine';
+import { extractActiveLogo } from '../../../utils/logoHelper';
 
 async function urlToBase64(url: string | null | undefined) {
   if (!url) return null;
@@ -83,7 +84,9 @@ export async function generateSvgCoverImage(
     if (!preset) return null;
 
     const svgSource = await pdfModelService.getPresetSvgContent(preset.id);
-    const logoUrl = await urlToBase64(model.logo_url);
+    const resolvedRawLogo = model.logo_url || proposal.profile?.logo_url || proposal.company?.logo_url || null;
+    const activeLogo = extractActiveLogo(resolvedRawLogo);
+    const logoUrl = await urlToBase64(activeLogo);
     const coverImageUrl = await urlToBase64(model.cover_image_url);
 
     const finalSvg = buildCoverSvg(

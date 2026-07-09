@@ -1,21 +1,32 @@
 import React from "react";
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { profileService } from '../services/profileService';
 import { Profile } from '../types/profile';
 import { DatabaseSetupAlert } from '../components/ui/DatabaseSetupAlert';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Building2, Image as ImageIcon, User, Settings as SettingsIcon, Shield, Upload, Save, Loader2, Lock, UserX, AlertTriangle } from 'lucide-react';
+import { Building2, Image as ImageIcon, User, Settings as SettingsIcon, Shield, Upload, Save, Loader2, Lock, UserX, AlertTriangle, Check, Trash } from 'lucide-react';
 import { supabase } from '../lib/supabase/client';
+import { extractActiveLogo, extractAllLogos, serializeLogos } from '../utils/logoHelper';
 
 export function Configuracoes() {
   const { user, signOut } = useAuth();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'empresa' | 'logo' | 'vendedor' | 'preferencias' | 'seguranca' | 'encerramento'>('empresa');
+
+  useEffect(() => {
+    if (tabParam === 'logo' || tabParam === 'empresa' || tabParam === 'vendedor' || tabParam === 'preferencias' || tabParam === 'seguranca' || tabParam === 'encerramento') {
+      setActiveTab(tabParam as any);
+    }
+  }, [tabParam]);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [loadError, setLoadError] = useState<any>(null);
 
@@ -233,13 +244,58 @@ export function Configuracoes() {
     setUploadingLogo(true);
     try {
       const url = await profileService.uploadLogo(file, user.id);
-      setProfile({ ...profile, logo_url: url });
-      await profileService.updateProfile(user.id, { logo_url: url });
+      const currentLogos = extractAllLogos(profile.logo_url);
+      const activeLogo = extractActiveLogo(profile.logo_url);
+      
+      const updatedLogos = [...currentLogos, url];
+      const newActiveLogo = activeLogo || url;
+      
+      const serializedValue = serializeLogos(newActiveLogo, updatedLogos);
+      setProfile({ ...profile, logo_url: serializedValue });
+      await profileService.updateProfile(user.id, { logo_url: serializedValue });
       toast.success('Logo enviada com sucesso!');
     } catch (err: any) {
       toast.error(err?.message?.includes('row-level security') ? 'Erro de permissão. Execute o supabase-schema.sql no SQL Editor.' : (err.message || 'Erro ao fazer upload da logo'));
     } finally {
       setUploadingLogo(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleSetLogoActive = async (url: string) => {
+    if (!user || !profile) return;
+    try {
+      const currentLogos = extractAllLogos(profile.logo_url);
+      const serializedValue = serializeLogos(url, currentLogos);
+      
+      setProfile({ ...profile, logo_url: serializedValue });
+      await profileService.updateProfile(user.id, { logo_url: serializedValue });
+      toast.success('Logo ativa alterada com sucesso!');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao alterar logo ativa');
+    }
+  };
+
+  const handleDeleteLogo = async (url: string) => {
+    if (!user || !profile) return;
+    try {
+      const currentLogos = extractAllLogos(profile.logo_url);
+      const activeLogo = extractActiveLogo(profile.logo_url);
+      
+      const updatedLogos = currentLogos.filter(logo => logo !== url);
+      let newActiveLogo = activeLogo;
+      
+      if (activeLogo === url) {
+        newActiveLogo = updatedLogos.length > 0 ? updatedLogos[0] : null;
+      }
+      
+      const serializedValue = updatedLogos.length > 0 ? serializeLogos(newActiveLogo, updatedLogos) : null;
+      
+      setProfile({ ...profile, logo_url: serializedValue });
+      await profileService.updateProfile(user.id, { logo_url: serializedValue });
+      toast.success('Logo excluída com sucesso!');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir logo');
     }
   };
 
@@ -412,45 +468,101 @@ export function Configuracoes() {
           {activeTab === 'logo' && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Logo da Empresa</CardTitle>
-                <CardDescription>Esta imagem aparecerá no cabeçalho das propostas em PDF e nos links públicos.</CardDescription>
+                <CardTitle className="text-lg">Logos da Empresa</CardTitle>
+                <CardDescription>Envie múltiplos logotipos e defina qual será o principal (padrão) para os cabeçalhos de propostas em PDF e links públicos.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-brand-border rounded-lg bg-brand-surface">
-                  {profile.logo_url ? (
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="h-32 w-64 bg-brand-surface rounded-lg flex items-center justify-center p-2 border border-brand-border">
-                        <img src={profile.logo_url} alt="Logo" className="max-h-full max-w-full object-contain" />
+                
+                {/* List of current logos */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {extractAllLogos(profile.logo_url).map((logoUrl, idx) => {
+                    const isActive = extractActiveLogo(profile.logo_url) === logoUrl;
+                    return (
+                      <div 
+                        key={logoUrl} 
+                        className={`relative group rounded-lg border p-4 bg-brand-surface flex flex-col items-center justify-center transition-all ${
+                          isActive 
+                            ? 'border-brand-blue ring-2 ring-brand-blue/20 bg-brand-blue/5' 
+                            : 'border-brand-border hover:border-slate-400'
+                        }`}
+                      >
+                        {/* Selected overlay label */}
+                        {isActive && (
+                          <div className="absolute top-2 left-2 flex items-center gap-1 bg-brand-blue text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            <Check className="w-3 h-3" /> Padrão
+                          </div>
+                        )}
+                        
+                        {/* Logo Image */}
+                        <div className="h-20 w-full flex items-center justify-center p-2 mb-3">
+                          <img src={logoUrl} alt={`Logo ${idx + 1}`} className="max-h-full max-w-full object-contain" />
+                        </div>
+
+                        {/* Actions overlay / footer */}
+                        <div className="flex gap-2 w-full mt-auto pt-2 border-t border-brand-border/60">
+                          {!isActive ? (
+                            <button
+                              onClick={() => handleSetLogoActive(logoUrl)}
+                              className="flex-1 text-xs text-brand-blue hover:text-brand-blue-hover font-medium py-1.5 px-2 bg-brand-blue/10 hover:bg-brand-blue/20 rounded transition-colors text-center cursor-pointer"
+                            >
+                              Tornar Padrão
+                            </button>
+                          ) : (
+                            <span className="flex-1 text-center text-xs text-brand-blue font-bold py-1.5">
+                              Logo Ativa
+                            </span>
+                          )}
+                          <button
+                            onClick={() => handleDeleteLogo(logoUrl)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors cursor-pointer"
+                            title="Excluir logo"
+                          >
+                            <Trash className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-sm text-slate-500">Logo atual</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-2">
-                        <ImageIcon className="w-8 h-8 text-slate-500" />
-                      </div>
-                      <p className="text-sm font-medium text-brand-dark">Nenhuma logo enviada</p>
-                      <p className="text-xs text-slate-500">PNG, JPG até 5MB</p>
+                    );
+                  })}
+
+                  {/* Empty state when no logos are available */}
+                  {extractAllLogos(profile.logo_url).length === 0 && (
+                    <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400">
+                      <ImageIcon className="w-12 h-12 text-slate-300 mb-2" />
+                      <p className="text-sm font-medium">Nenhum logotipo enviado ainda.</p>
+                      <p className="text-xs">Faça o upload do seu primeiro logo abaixo.</p>
                     </div>
                   )}
                 </div>
 
-                <div className="flex justify-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    id="logo-upload"
-                    className="hidden"
-                    onChange={handleLogoUpload}
-                    disabled={uploadingLogo}
-                  />
-                  <label htmlFor="logo-upload">
-                    <Button as="span" variant="outline" className="cursor-pointer gap-2" disabled={uploadingLogo}>
+                {/* Upload Section */}
+                <div className="border-t border-brand-border pt-6 flex flex-col items-center gap-4">
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-brand-dark">Adicionar Novo Logotipo</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Suporta formatos PNG, JPG de até 5MB. Você pode adicionar múltiplos logotipos.</p>
+                  </div>
+
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="logo-upload"
+                      className="hidden"
+                      onChange={handleLogoUpload}
+                      disabled={uploadingLogo}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="gap-2 cursor-pointer" 
+                      disabled={uploadingLogo}
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                    >
                       {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                      {uploadingLogo ? 'Enviando...' : (profile.logo_url ? 'Trocar Logo' : 'Enviar Logo')}
+                      {uploadingLogo ? 'Enviando...' : 'Fazer Upload de Logo'}
                     </Button>
-                  </label>
+                  </div>
                 </div>
+
               </CardContent>
             </Card>
           )}

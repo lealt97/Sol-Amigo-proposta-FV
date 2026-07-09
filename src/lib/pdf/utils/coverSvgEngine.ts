@@ -265,20 +265,78 @@ function replaceLogo(doc: Document, logoUrl?: string | null, transform?: Transfo
 
   if (!logoElement) return;
 
+  // 1. Determine base coordinates (baseX, baseY) from the original logoElement
+  let baseX = 32;
+  let baseY = 32;
+
+  if (logoElement.hasAttribute('x') && logoElement.getAttribute('x')) {
+    baseX = Number(logoElement.getAttribute('x'));
+  }
+  if (logoElement.hasAttribute('y') && logoElement.getAttribute('y')) {
+    baseY = Number(logoElement.getAttribute('y'));
+  }
+
+  // If it is a path (very common for vector placeholder texts), parse the starting point of the path
+  const tagName = logoElement.tagName.toLowerCase();
+  if (tagName === 'path') {
+    const d = logoElement.getAttribute('d');
+    if (d) {
+      const match = d.match(/M\s*([\d.-]+)[\s,]+([\d.-]+)/i);
+      if (match) {
+        baseX = Number(match[1]);
+        baseY = Number(match[2]);
+      }
+    }
+  } else if (logoElement.hasAttribute('points')) {
+    const pts = logoElement.getAttribute('points')?.trim().split(/[\s,]+/);
+    if (pts && pts.length >= 2) {
+      baseX = Number(pts[0]);
+      baseY = Number(pts[1]);
+    }
+  }
+
+  const transformAttr = logoElement.getAttribute('transform');
+  if (transformAttr) {
+    const match = transformAttr.match(/translate\(\s*([\d.-]+)[\s,]+([\d.-]+)\s*\)/i);
+    if (match) {
+      baseX += Number(match[1]);
+      baseY += Number(match[2]);
+    }
+  }
+
+  // 2. Hide the original logo placeholder
+  logoElement.setAttribute('display', 'none');
+
+  // 3. Create the logo image element
   const image = doc.createElementNS(SVG_NS, 'image');
   image.setAttribute('id', 'company-logo-image');
   setHref(image, logoUrl);
-  image.setAttribute('x', '32');
-  image.setAttribute('y', '32');
+  image.setAttribute('x', '0');
+  image.setAttribute('y', '0');
   image.setAttribute('width', '140');
   image.setAttribute('height', '64');
   image.setAttribute('preserveAspectRatio', 'xMinYMin meet');
   image.setAttribute('display', 'block');
   image.setAttribute('opacity', '1');
   image.setAttribute('crossorigin', 'anonymous');
-  if (transform) image.setAttribute('transform', `translate(${transform.x}, ${transform.y}) scale(${transform.zoom}) rotate(${transform.rotate})`);
 
-  logoElement.setAttribute('display', 'none');
+  // 4. Construct a perfect center-based transform
+  const width = 140;
+  const height = 64;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  const t = transform || { x: 0, y: 0, zoom: 1, rotate: 0 };
+  const dx = baseX + (t.x || 0);
+  let dy = baseY + (t.y || 0);
+  if (tagName === 'path') {
+    // Offset path baseline slightly up so it centers visually
+    dy = baseY - 20 + (t.y || 0);
+  }
+
+  const transformStr = `translate(${dx}, ${dy}) translate(${cx}, ${cy}) scale(${t.zoom || 1}) rotate(${t.rotate || 0}) translate(${-cx}, ${-cy})`;
+  image.setAttribute('transform', transformStr);
+
   logoElement.parentNode?.appendChild(image);
 }
 

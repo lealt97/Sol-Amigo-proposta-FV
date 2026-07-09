@@ -5,6 +5,7 @@ import { publicProposalService } from '../../services/publicProposalService';
 import { Button } from '../../components/ui/Button';
 import { FileText, CheckCircle, XCircle, Clock, Zap, DollarSign, PiggyBank, TrendingDown } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';
+import { extractActiveLogo } from '../../utils/logoHelper';
 
 export function PublicProposal() {
   const { publicToken } = useParams<{ publicToken: string }>();
@@ -98,8 +99,8 @@ export function PublicProposal() {
         
         {/* Header / Logo */}
         <div className="flex flex-col items-center justify-center text-center space-y-4">
-          {proposal.company?.logo_url ? (
-            <img src={proposal.company.logo_url} alt={proposal.company.name} className="h-16 object-contain" />
+          {extractActiveLogo(proposal.company?.logo_url || null) ? (
+            <img src={extractActiveLogo(proposal.company.logo_url)!} alt={proposal.company.name} className="h-16 object-contain" />
           ) : (
             <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
               <Zap className="w-8 h-8 text-brand-dark" />

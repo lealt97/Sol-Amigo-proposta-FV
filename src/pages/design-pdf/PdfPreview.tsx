@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { PdfUserModel } from '../../types/pdfModels';
 import { pdfModelService } from '../../services/pdfModelService';
 import { buildCoverSvg } from '../../lib/pdf/utils/coverSvgEngine';
+import { useAuth } from '../../contexts/AuthContext';
+import { profileService } from '../../services/profileService';
+import { extractActiveLogo } from '../../utils/logoHelper';
 
 interface PdfPreviewProps {
   model: PdfUserModel;
@@ -9,8 +12,24 @@ interface PdfPreviewProps {
 }
 
 export function PdfPreview({ model, isCardPreview }: PdfPreviewProps) {
+  const { user } = useAuth();
+  const [profileLogo, setProfileLogo] = useState<string | null>(null);
   const preset = useMemo(() => pdfModelService.getPreset(model.preset_id), [model.preset_id]);
   const [svgSource, setSvgSource] = useState('');
+
+  useEffect(() => {
+    async function loadProfileLogo() {
+      if (!user) return;
+      try {
+        const profile = await profileService.getProfile(user.id);
+        const active = extractActiveLogo(profile.logo_url);
+        setProfileLogo(active);
+      } catch (err) {
+        console.error('Error loading profile logo in preview:', err);
+      }
+    }
+    loadProfileLogo();
+  }, [user]);
 
   useEffect(() => {
     let active = true;
@@ -50,14 +69,14 @@ export function PdfPreview({ model, isCardPreview }: PdfPreviewProps) {
         powerKwp: '12,50 kWp',
         cityState: 'São Paulo - SP',
         date: new Date().toLocaleDateString('pt-BR'),
-        logoUrl: model.logo_url,
+        logoUrl: extractActiveLogo(model.logo_url) || profileLogo,
         coverImageUrl: model.cover_image_url,
         logoTransform: model.logo_transform,
         coverImageTransform: model.cover_image_transform,
       },
       model.id
     );
-  }, [svgSource, preset, model]);
+  }, [svgSource, preset, model, profileLogo]);
 
   if (!preset) return <div className="text-slate-500">Preset não encontrado.</div>;
   if (!finalSvgContent) return <div className="text-slate-500">Carregando preview...</div>;

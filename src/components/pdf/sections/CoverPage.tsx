@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from '@react-pdf/renderer';
 import { Proposal } from '../../../types/proposal';
+import { extractActiveLogo } from '../../../utils/logoHelper';
 
 const styles = StyleSheet.create({
   container: {
@@ -90,8 +91,8 @@ export const CoverPage = ({ proposal }: { proposal: Proposal }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        {proposal.profile?.logo_url ? (
-          <Image src={proposal.profile.logo_url} style={styles.logoImage} />
+        {extractActiveLogo(proposal.profile?.logo_url || null) ? (
+          <Image src={extractActiveLogo(proposal.profile!.logo_url)!} style={styles.logoImage} />
         ) : (
           <Text style={styles.companyName}>{proposal.profile?.company_name || 'Empresa de Energia Solar'}</Text>
         )}

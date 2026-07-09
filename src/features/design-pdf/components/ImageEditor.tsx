@@ -1,5 +1,5 @@
+import { ChangeEvent } from 'react';
 import { Upload } from 'lucide-react';
-import { Button } from '../../../components/ui/Button';
 import { Label } from '../../../components/ui/Label';
 import { PdfUserModel, TransformConfig } from '../types/pdfDesignTypes';
 import { CoverPhotoFramingSelector } from './CoverPhotoFramingSelector';
@@ -9,7 +9,7 @@ interface ImageEditorProps {
   model: PdfUserModel;
   profileLogo: string | null;
   availableLogos: string[];
-  onFileUpload: (event: React.ChangeEvent<HTMLInputElement>, target: 'logo_url' | 'cover_image_url') => void;
+  onFileUpload: (event: ChangeEvent<HTMLInputElement>, target: 'logo_url' | 'cover_image_url') => void;
   onLogoSelect: (logoUrl: string) => void;
   onTransformChange: (target: 'logo_transform' | 'cover_image_transform', key: keyof TransformConfig, value: number) => void;
   onTransformSet: (target: 'logo_transform' | 'cover_image_transform', transform: TransformConfig) => void;
@@ -37,33 +37,20 @@ export function ImageEditor({
         {(profileLogo || availableLogos.length > 0) && (
           <div className="grid grid-cols-2 gap-2">
             {[...new Set([profileLogo, ...availableLogos].filter(Boolean) as string[])].map((logo) => (
-              <button
-                key={logo}
-                type="button"
-                onClick={() => onLogoSelect(logo)}
-                className={`h-20 rounded-lg border p-2 bg-white flex items-center justify-center transition-all ${model.logo_url === logo ? 'border-brand-blue ring-2 ring-brand-blue/30' : 'border-brand-border hover:border-brand-blue/60'}`}
-              >
+              <button key={logo} type="button" onClick={() => onLogoSelect(logo)} className={`h-20 rounded-lg border p-2 bg-white flex items-center justify-center transition-all ${model.logo_url === logo ? 'border-brand-blue ring-2 ring-brand-blue/30' : 'border-brand-border hover:border-brand-blue/60'}`}>
                 <img src={logo} alt="Logo disponível" className="max-h-full max-w-full object-contain" />
               </button>
             ))}
           </div>
         )}
 
-        <label className="block">
+        <label className="w-full flex items-center justify-center gap-2 rounded-md border border-brand-border bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/15 hover:text-white cursor-pointer transition-colors">
+          <Upload className="w-4 h-4" /> Enviar logo
           <input type="file" accept="image/*,.svg" className="hidden" onChange={(event) => onFileUpload(event, 'logo_url')} />
-          <Button type="button" variant="outline" className="w-full gap-2 border-brand-border bg-white/5 hover:bg-white/15 text-slate-100 hover:text-white font-semibold" asChild>
-            <span><Upload className="w-4 h-4" /> Enviar logo</span>
-          </Button>
         </label>
 
         {model.logo_url && (
-          <TransformControls
-            label="Logo"
-            target="logo"
-            value={model.logo_transform}
-            onChange={(key, value) => onTransformChange('logo_transform', key, value)}
-            onReset={() => onTransformReset('logo_transform')}
-          />
+          <TransformControls label="Logo" target="logo" value={model.logo_transform} onChange={(key, value) => onTransformChange('logo_transform', key, value)} onReset={() => onTransformReset('logo_transform')} />
         )}
       </section>
 
@@ -79,28 +66,15 @@ export function ImageEditor({
           </div>
         )}
 
-        <label className="block">
+        <label className="w-full flex items-center justify-center gap-2 rounded-md border border-brand-border bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/15 hover:text-white cursor-pointer transition-colors">
+          <Upload className="w-4 h-4" /> Enviar foto da capa
           <input type="file" accept="image/*" className="hidden" onChange={(event) => onFileUpload(event, 'cover_image_url')} />
-          <Button type="button" variant="outline" className="w-full gap-2 border-brand-border bg-white/5 hover:bg-white/15 text-slate-100 hover:text-white font-semibold" asChild>
-            <span><Upload className="w-4 h-4" /> Enviar foto da capa</span>
-          </Button>
         </label>
 
         {model.cover_image_url && (
           <>
-            <CoverPhotoFramingSelector
-              imageUrl={model.cover_image_url}
-              transform={model.cover_image_transform}
-              onChange={(transform) => onTransformSet('cover_image_transform', transform)}
-              onReset={() => onTransformReset('cover_image_transform')}
-            />
-            <TransformControls
-              label="Foto da capa"
-              target="cover"
-              value={model.cover_image_transform}
-              onChange={(key, value) => onTransformChange('cover_image_transform', key, value)}
-              onReset={() => onTransformReset('cover_image_transform')}
-            />
+            <CoverPhotoFramingSelector imageUrl={model.cover_image_url} transform={model.cover_image_transform} onChange={(transform) => onTransformSet('cover_image_transform', transform)} onReset={() => onTransformReset('cover_image_transform')} />
+            <TransformControls label="Foto da capa" target="cover" value={model.cover_image_transform} onChange={(key, value) => onTransformChange('cover_image_transform', key, value)} onReset={() => onTransformReset('cover_image_transform')} />
           </>
         )}
       </section>

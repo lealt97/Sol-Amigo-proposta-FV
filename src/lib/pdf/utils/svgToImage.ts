@@ -101,7 +101,8 @@ export async function generateSvgCoverImage(
         coverImageUrl,
         logoTransform: model.logo_transform,
         coverImageTransform: model.cover_image_transform,
-      }
+      },
+      model.id
     );
 
     return await svgToPngDataUrl(finalSvg);

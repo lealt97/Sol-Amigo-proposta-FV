@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { pdfModelService } from '../../services/pdfModelService';
 import { PdfTemplatePreset, PdfUserModel } from '../../types/pdfModels';
 import { DesignPdfEditor } from './DesignPdfEditor';
+import { PdfPreview } from './PdfPreview';
 import { Button } from '../../components/ui/Button';
 import { LayoutTemplate, Plus, MoreVertical, Edit2, Copy, Trash, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
@@ -390,17 +391,80 @@ export function DesignPdf() {
                       )}
                       
                       <div className="aspect-[1/1.414] bg-slate-950/40 relative border-b border-brand-border">
-                        {preset?.thumbnail_url ? (
-                          <img src={preset.thumbnail_url} alt={model.name} className="w-full h-full object-cover opacity-80" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-400">Sem preview</div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent flex items-end p-4">
-                           <h3 className="font-semibold text-white truncate text-base drop-shadow-md w-full text-center">{model.name}</h3>
+                        <PdfPreview model={model} isCardPreview />
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent flex items-end p-4 z-10 pointer-events-none">
+                          <h3 className="font-semibold text-white truncate text-base drop-shadow-md w-full text-center">{model.name}</h3>
+                        </div>
+
+                        {/* Hover Actions Overlay */}
+                        <div className="absolute inset-0 bg-slate-950/85 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 z-30 pointer-events-none group-hover:pointer-events-auto">
+                          <div className="flex gap-2 items-center justify-center">
+                            {/* Editar */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingModel(model);
+                              }}
+                              className="w-10 h-10 rounded-full bg-brand-blue hover:bg-brand-blue-hover text-white flex items-center justify-center shadow-lg transition-all hover:scale-110 active:scale-95 focus:outline-none"
+                              title="Editar Modelo"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+
+                            {/* Duplicar */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDuplicate(model.id);
+                              }}
+                              className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-100 flex items-center justify-center border border-brand-border shadow-lg transition-all hover:scale-110 active:scale-95 focus:outline-none"
+                              title="Duplicar Modelo"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+
+                            {/* Padrão */}
+                            {!model.is_default ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSetDefault(model.id);
+                                }}
+                                className="w-10 h-10 rounded-full bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 flex items-center justify-center border border-brand-border shadow-lg transition-all hover:scale-110 active:scale-95 focus:outline-none"
+                                title="Definir como Padrão"
+                              >
+                                <Star className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <div
+                                className="w-10 h-10 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shadow-lg border border-amber-400"
+                                title="Modelo Ativo (Padrão)"
+                              >
+                                <Star className="w-4 h-4 fill-current" />
+                              </div>
+                            )}
+
+                            {/* Excluir */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(model.id);
+                              }}
+                              className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg transition-all hover:scale-110 active:scale-95 focus:outline-none"
+                              title="Excluir Modelo"
+                            >
+                              <Trash className="w-4 h-4" />
+                            </button>
+                          </div>
+                          
+                          <span className="text-[10px] text-slate-300 font-medium tracking-wide bg-slate-900/80 px-2 py-0.5 rounded border border-brand-border/45">
+                            Ações do Modelo
+                          </span>
                         </div>
                       </div>
                       
-                      <div className="p-4 bg-gray-50/20 flex flex-col gap-3 mt-auto">
+                      <div className="p-4 bg-gray-50/20 flex flex-col mt-auto">
                         {/* Color Palettes */}
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-slate-300 font-medium">Cores</span>
@@ -409,67 +473,6 @@ export function DesignPdf() {
                             <div className="w-4 h-4 rounded-full border border-brand-border" style={{ backgroundColor: model.theme.secondary }} title="Secundária" />
                             <div className="w-4 h-4 rounded-full border border-brand-border" style={{ backgroundColor: model.theme.accent }} title="Destaque" />
                             <div className="w-4 h-4 rounded-full border border-brand-border" style={{ backgroundColor: model.theme.neutral }} title="Neutra" />
-                          </div>
-                        </div>
-
-                        <div className="h-px bg-brand-border/60" />
-
-                        {/* Highly visible, high contrast, directly accessible Action Buttons */}
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="default"
-                              className="bg-brand-blue hover:bg-brand-blue-hover text-white font-bold flex items-center justify-center gap-1 text-xs py-2 shadow-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingModel(model);
-                              }}
-                            >
-                              <Edit2 className="w-3.5 h-3.5" /> Editar
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="border-brand-border bg-white/5 hover:bg-white/15 text-slate-100 hover:text-white font-semibold flex items-center justify-center gap-1 text-xs py-2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDuplicate(model.id);
-                              }}
-                            >
-                              <Copy className="w-3.5 h-3.5" /> Duplicar
-                            </Button>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            {!model.is_default ? (
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 font-semibold flex items-center justify-center gap-1 text-xs py-2"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSetDefault(model.id);
-                                }}
-                              >
-                                <Star className="w-3.5 h-3.5" /> Padrão
-                              </Button>
-                            ) : (
-                              <div className="border border-amber-500/30 text-amber-300 bg-amber-500/20 rounded-md flex items-center justify-center gap-1 text-xs py-2 font-bold shadow-inner">
-                                <Star className="w-3.5 h-3.5 fill-current text-amber-400 animate-pulse" /> Ativo
-                              </div>
-                            )}
-                            <Button 
-                              size="sm" 
-                              variant="destructive"
-                              className="bg-red-600 hover:bg-red-700 text-white font-bold flex items-center justify-center gap-1 text-xs py-2 shadow-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(model.id);
-                              }}
-                            >
-                              <Trash className="w-3.5 h-3.5" /> Excluir
-                            </Button>
                           </div>
                         </div>
                       </div>

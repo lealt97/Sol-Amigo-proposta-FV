@@ -45,6 +45,9 @@ const COLOR_ALIASES: Record<string, keyof PdfTheme> = {
 function normalizeHex(value: string | null) {
   if (!value) return '';
   const color = value.trim();
+  const upper = color.toUpperCase();
+  if (upper === 'BLACK') return '#000000';
+  if (upper === 'WHITE') return '#FFFFFF';
   if (!color.startsWith('#')) return color;
 
   if (color.length === 4) {
@@ -99,138 +102,184 @@ function applyTheme(doc: Document, theme: CoverTheme) {
   forceGroupPaint(doc, '[id*="cor_secund"], [id*="Cor_secund"], [id*="secondary"]', theme.current.secondary);
 }
 
-function setHref(element: Element | null, href: string) {
-  if (!element || !href) return;
+interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function setHref(element: Element, href: string) {
   element.setAttribute('href', href);
   element.setAttributeNS(XLINK_NS, 'xlink:href', href);
 }
 
-function getPatternIdFromFill(fill: string | null) {
-  const match = fill?.match(/url\(#([^\)]+)\)/);
+function getUrlReference(value: string | null) {
+  const match = value?.match(/url\(#([^\)]+)\)/);
   return match?.[1] || null;
 }
 
-function isPhotoId(element: Element) {
-  const id = element.getAttribute('id')?.toLowerCase() || '';
-  return id.includes('foto_aqui') || id.includes('foto aqui') || id.includes('cover-photo');
+function parseBounds(value: string | null): Bounds | null {
+  if (!value) return null;
+  const [x, y, width, height] = value.trim().split(/[\s,]+/).map(Number);
+  if ([x, y, width, height].some(Number.isNaN)) return null;
+  return { x, y, width, height };
 }
 
-function isSvgShape(element: Element | null) {
-  if (!element) return false;
-  return ['path', 'rect', 'polygon', 'polyline', 'circle', 'ellipse'].includes(element.tagName.toLowerCase());
-}
-
-function findPhotoShape(doc: Document) {
-  const byId = Array.from(doc.querySelectorAll('[id]')).find(isPhotoId) || null;
-
-  if (byId && isSvgShape(byId) && getPatternIdFromFill(byId.getAttribute('fill'))) {
-    return byId;
-  }
-
-  const childShape = byId?.querySelector('[fill^="url(#pattern"], [fill^="url(#"]') || null;
-  if (childShape) return childShape;
-
-  return doc.querySelector('[fill^="url(#pattern"], [fill^="url(#"]');
-}
-
-function getPatternElement(doc: Document, patternId: string | null) {
-  if (!patternId) return null;
-  return doc.getElementById(patternId);
-}
-
-function removePatternChildren(pattern: Element) {
-  while (pattern.firstChild) {
-    pattern.removeChild(pattern.firstChild);
-  }
-}
-
-function normalizePatternAsFigmaCrop(pattern: Element) {
-  pattern.setAttribute('patternContentUnits', 'objectBoundingBox');
-  pattern.setAttribute('width', '1');
-  pattern.setAttribute('height', '1');
-  pattern.setAttribute('data-pdf-image-mode', 'crop');
-  pattern.removeAttribute('patternTransform');
-}
-
-function getImageCropTransform(transform?: TransformConfig) {
+function getImageTransform(bounds: Bounds, transform?: TransformConfig) {
   const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
-  const x = Number(transform?.x ?? 0) / 595;
-  const y = Number(transform?.y ?? 0) / 842;
-  const left = ((1 - zoom) / 2) + x;
-  const top = ((1 - zoom) / 2) + y;
+  const offsetX = Number(transform?.x ?? 0);
+  const offsetY = Number(transform?.y ?? 0);
   const rotate = Number(transform?.rotate ?? 0);
 
-  if (!rotate) return { x: left, y: top, width: zoom, height: zoom, transform: '' };
+  const width = bounds.width * zoom;
+  const height = bounds.height * zoom;
+  const x = bounds.x + (bounds.width - width) / 2 + offsetX;
+  const y = bounds.y + (bounds.height - height) / 2 + offsetY;
+
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
 
   return {
-    x: left,
-    y: top,
-    width: zoom,
-    height: zoom,
-    transform: `rotate(${rotate} 0.5 0.5)`,
+    x,
+    y,
+    width,
+    height,
+    transform: rotate ? `rotate(${rotate} ${centerX} ${centerY})` : '',
   };
 }
 
-function applyPhotoAsFigmaCrop(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
-  if (!imageUrl) return;
+function clearElement(element: Element) {
+  while (element.firstChild) element.removeChild(element.firstChild);
+}
 
-  const shape = findPhotoShape(doc);
-  const patternId = getPatternIdFromFill(shape?.getAttribute('fill') || null);
-  const pattern = getPatternElement(doc, patternId);
+function hidePhotoPlaceholder(doc: Document) {
+  doc.querySelectorAll('[id*="foto_aqui_placeholder"], [id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
+    element.setAttribute('display', 'none');
+    element.setAttribute('opacity', '0');
+  });
+}
 
-  if (!shape || !pattern) return;
+function moveLayerAbovePlaceholder(layer: Element) {
+  const parent = layer.parentElement;
+  if (!parent) return;
+  if (parent.lastElementChild !== layer) {
+    parent.appendChild(layer);
+  }
+}
 
-  normalizePatternAsFigmaCrop(pattern);
-  removePatternChildren(pattern);
+function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
+  if (!imageUrl) return false;
+  const layer = doc.getElementById('cover-photo-layer');
+  if (!layer) return false;
 
-  const crop = getImageCropTransform(transform);
+  const coverGroup = doc.getElementById('cover-photo') || layer.parentElement;
+  const bounds = parseBounds(coverGroup?.getAttribute('data-photo-bounds') || null) || { x: 0, y: 0, width: 595, height: 842 };
+  const crop = getImageTransform(bounds, transform);
+
+  hidePhotoPlaceholder(doc);
+  moveLayerAbovePlaceholder(layer);
+  clearElement(layer);
+
   const image = doc.createElementNS(SVG_NS, 'image');
   image.setAttribute('id', 'cover-photo-image');
   image.setAttribute('data-pdf-role', 'cover-photo-image');
-  image.setAttribute('data-pdf-image-mode', 'crop');
+  image.setAttribute('data-pdf-image-mode', 'clip-layer');
   image.setAttribute('x', String(crop.x));
   image.setAttribute('y', String(crop.y));
   image.setAttribute('width', String(crop.width));
   image.setAttribute('height', String(crop.height));
-  image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  image.setAttribute('display', 'block');
+  image.setAttribute('opacity', '1');
+  image.setAttribute('crossorigin', 'anonymous');
   if (crop.transform) image.setAttribute('transform', crop.transform);
+  setHref(image, imageUrl);
+
+  layer.appendChild(image);
+  coverGroup?.setAttribute('data-photo-applied', 'true');
+  return true;
+}
+
+function findLegacyPhotoShape(doc: Document) {
+  const byId = Array.from(doc.querySelectorAll('[id]')).find((element) => {
+    const id = element.getAttribute('id')?.toLowerCase() || '';
+    return id.includes('foto_aqui') || id.includes('foto aqui') || id.includes('cover-photo');
+  });
+
+  const shape = byId?.matches('path, rect, polygon, polyline, circle, ellipse')
+    ? byId
+    : byId?.querySelector('[fill^="url(#pattern"], [fill^="url(#"]');
+
+  return shape || doc.querySelector('[fill^="url(#pattern"], [fill^="url(#"]');
+}
+
+function applyPhotoAsPattern(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
+  if (!imageUrl) return;
+
+  const shape = findLegacyPhotoShape(doc);
+  const patternId = getUrlReference(shape?.getAttribute('fill') || null);
+  const pattern = patternId ? doc.getElementById(patternId) : null;
+
+  if (!shape || !pattern) return;
+
+  clearElement(pattern);
+  pattern.setAttribute('patternContentUnits', 'objectBoundingBox');
+  pattern.setAttribute('width', '1');
+  pattern.setAttribute('height', '1');
+  pattern.removeAttribute('patternTransform');
+
+  const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
+  const left = (1 - zoom) / 2 + Number(transform?.x ?? 0) / 595;
+  const top = (1 - zoom) / 2 + Number(transform?.y ?? 0) / 842;
+  const rotate = Number(transform?.rotate ?? 0);
+
+  const image = doc.createElementNS(SVG_NS, 'image');
+  image.setAttribute('id', 'cover-photo-image');
+  image.setAttribute('data-pdf-role', 'cover-photo-image');
+  image.setAttribute('data-pdf-image-mode', 'crop');
+  image.setAttribute('x', String(left));
+  image.setAttribute('y', String(top));
+  image.setAttribute('width', String(zoom));
+  image.setAttribute('height', String(zoom));
+  image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  image.setAttribute('display', 'block');
+  image.setAttribute('opacity', '1');
+  image.setAttribute('crossorigin', 'anonymous');
+  if (rotate) image.setAttribute('transform', `rotate(${rotate} 0.5 0.5)`);
   setHref(image, imageUrl);
 
   pattern.appendChild(image);
   shape.setAttribute('id', 'cover-photo-shape');
   shape.setAttribute('data-pdf-role', 'cover-photo-shape');
-  shape.setAttribute('data-pdf-image-mode', 'crop');
-  hidePhotoIcon(doc);
-}
-
-function hidePhotoIcon(doc: Document) {
-  doc.querySelectorAll('[id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
-    element.setAttribute('display', 'none');
-  });
+  hidePhotoPlaceholder(doc);
 }
 
 function replaceLogo(doc: Document, logoUrl?: string | null, transform?: TransformConfig) {
   if (!logoUrl) return;
 
-  const logoText = Array.from(doc.querySelectorAll('[id]')).find((element) => {
+  const logoElement = Array.from(doc.querySelectorAll('[id]')).find((element) => {
     const id = element.getAttribute('id')?.toLowerCase() || '';
     return id.includes('logo');
   });
 
-  if (!logoText) return;
+  if (!logoElement) return;
 
   const image = doc.createElementNS(SVG_NS, 'image');
-  image.setAttribute('id', 'company-logo');
+  image.setAttribute('id', 'company-logo-image');
   setHref(image, logoUrl);
   image.setAttribute('x', '32');
   image.setAttribute('y', '32');
   image.setAttribute('width', '140');
   image.setAttribute('height', '64');
   image.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+  image.setAttribute('display', 'block');
+  image.setAttribute('opacity', '1');
+  image.setAttribute('crossorigin', 'anonymous');
   if (transform) image.setAttribute('transform', `translate(${transform.x}, ${transform.y}) scale(${transform.zoom}) rotate(${transform.rotate})`);
 
-  logoText.setAttribute('display', 'none');
-  logoText.parentNode?.appendChild(image);
+  logoElement.setAttribute('display', 'none');
+  logoElement.parentNode?.appendChild(image);
 }
 
 function replaceTextContent(text: string, values: CoverValues) {
@@ -255,14 +304,58 @@ function applyTexts(doc: Document, values: CoverValues) {
   });
 }
 
-export function buildCoverSvg(svgSource: string, theme: CoverTheme, values: CoverValues = {}) {
+function makeIdsUnique(doc: Document, suffix: string) {
+  const elementsWithId = doc.querySelectorAll('[id]');
+  const idMap = new Map<string, string>();
+  
+  // Sanitize the suffix so it only contains valid selector characters
+  const safeSuffix = suffix.replace(/[^a-zA-Z0-9]/g, '_');
+
+  elementsWithId.forEach(el => {
+    const originalId = el.getAttribute('id');
+    if (originalId) {
+      const uniqueId = `${originalId}_model_${safeSuffix}`;
+      idMap.set(originalId, uniqueId);
+      el.setAttribute('id', uniqueId);
+    }
+  });
+
+  const refAttributes = ['clip-path', 'mask', 'fill', 'stroke', 'xlink:href', 'href'];
+  
+  doc.querySelectorAll('*').forEach(el => {
+    refAttributes.forEach(attr => {
+      const val = el.getAttribute(attr);
+      if (val) {
+        let newVal = val;
+        idMap.forEach((uniqueId, originalId) => {
+          const urlRegex = new RegExp(`url\\(#${originalId}\\)`, 'g');
+          newVal = newVal.replace(urlRegex, `url(#${uniqueId})`);
+          
+          if (newVal === `#${originalId}`) {
+            newVal = `#${uniqueId}`;
+          }
+        });
+        if (newVal !== val) {
+          el.setAttribute(attr, newVal);
+        }
+      }
+    });
+  });
+}
+
+export function buildCoverSvg(svgSource: string, theme: CoverTheme, values: CoverValues = {}, modelId?: string) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(svgSource, 'image/svg+xml');
 
   applyTheme(doc, theme);
   applyTexts(doc, values);
-  applyPhotoAsFigmaCrop(doc, values.coverImageUrl, values.coverImageTransform);
+  const photoApplied = applyPhotoAsClipLayer(doc, values.coverImageUrl, values.coverImageTransform);
+  if (!photoApplied) applyPhotoAsPattern(doc, values.coverImageUrl, values.coverImageTransform);
   replaceLogo(doc, values.logoUrl, values.logoTransform);
+
+  if (modelId) {
+    makeIdsUnique(doc, modelId);
+  }
 
   return new XMLSerializer().serializeToString(doc);
 }

@@ -144,12 +144,16 @@ export const pdfModelService = {
     const preset = this.getPreset(presetId);
     if (!preset) throw new Error('Preset not found');
 
-    if (preset.svg_file_url) {
-      const response = await fetch(encodeURI(preset.svg_file_url));
-      if (response.ok) return response.text();
-    }
-
     if (preset.svg_content) return preset.svg_content;
+
+    if (preset.svg_file_url) {
+      try {
+        const response = await fetch(encodeURI(preset.svg_file_url));
+        if (response.ok) return await response.text();
+      } catch (error) {
+        console.error('Erro ao fazer fetch do SVG:', error);
+      }
+    }
 
     throw new Error(`Erro ao carregar SVG: ${preset.svg_file_url}`);
   },

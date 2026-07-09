@@ -5,9 +5,10 @@ import { buildCoverSvg } from '../../lib/pdf/utils/coverSvgEngine';
 
 interface PdfPreviewProps {
   model: PdfUserModel;
+  isCardPreview?: boolean;
 }
 
-export function PdfPreview({ model }: PdfPreviewProps) {
+export function PdfPreview({ model, isCardPreview }: PdfPreviewProps) {
   const preset = useMemo(() => pdfModelService.getPreset(model.preset_id), [model.preset_id]);
   const [svgSource, setSvgSource] = useState('');
 
@@ -53,12 +54,22 @@ export function PdfPreview({ model }: PdfPreviewProps) {
         coverImageUrl: model.cover_image_url,
         logoTransform: model.logo_transform,
         coverImageTransform: model.cover_image_transform,
-      }
+      },
+      model.id
     );
   }, [svgSource, preset, model]);
 
   if (!preset) return <div className="text-slate-500">Preset não encontrado.</div>;
   if (!finalSvgContent) return <div className="text-slate-500">Carregando preview...</div>;
+
+  if (isCardPreview) {
+    return (
+      <div 
+        className="w-full h-full [&>svg]:w-full [&>svg]:h-full [&>svg]:block flex items-center justify-center overflow-hidden"
+        dangerouslySetInnerHTML={{ __html: finalSvgContent }}
+      />
+    );
+  }
 
   return (
     <div className="w-full h-full flex items-center justify-center p-4">

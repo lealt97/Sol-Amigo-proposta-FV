@@ -18,6 +18,7 @@ const styles = StyleSheet.create({
   roofInfoValue: { fontSize: 11, fontWeight: 'bold', color: '#18181b' },
   roofPlanningBox: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   roofImageBox: { width: '58%', height: 174, backgroundColor: '#f8fafc', borderWidth: 1, borderStyle: 'dashed', borderColor: '#94a3b8', borderRadius: 8, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 0, position: 'relative' },
+  roofImageLayer: { width: '100%', height: '100%', position: 'relative' },
   roofImage: { width: '100%', height: '100%', objectFit: 'cover' },
   roofOverlay: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 },
   placeholder: { padding: 14 },
@@ -93,9 +94,7 @@ function RoofPlanSvg({ layout, showLabels = false }: { layout: RoofLayoutData; s
           const x2 = module.x + module.width / 2;
           const y2 = module.y + module.height / 2;
 
-          return (
-            <Line key={`${string.id}-${module.id}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={string.color} strokeWidth={0.45} strokeDasharray="1 0.8" />
-          );
+          return <Line key={`${string.id}-${module.id}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={string.color} strokeWidth={0.45} strokeDasharray="1 0.8" />;
         });
       })}
 
@@ -109,16 +108,12 @@ function RoofPlanSvg({ layout, showLabels = false }: { layout: RoofLayoutData; s
         return (
           <G key={module.id} transform={`rotate(${module.rotation || 0} ${cx} ${cy})`}>
             <Rect x={module.x} y={module.y} width={module.width} height={module.height} rx={0.8} fill="#F8FAFC" stroke={color} strokeWidth={0.7} />
-            <Rect x={module.x + module.width * 0.12} y={module.y + module.height * 0.18} width={module.width * 0.76} height={module.height * 0.58} fill={color} opacity={0.16} />
+            <Rect x={module.x + module.width * 0.12} y={module.y + module.height * 0.18} width={module.width * 0.76} height={module.height * 0.58} fill={color} fillOpacity={0.16} />
             <Line x1={module.x + module.width * 0.5} y1={module.y + module.height * 0.18} x2={module.x + module.width * 0.5} y2={module.y + module.height * 0.76} stroke={color} strokeWidth={0.25} />
             <Line x1={module.x + module.width * 0.12} y1={module.y + module.height * 0.38} x2={module.x + module.width * 0.88} y2={module.y + module.height * 0.38} stroke={color} strokeWidth={0.25} />
             <Line x1={module.x + module.width * 0.12} y1={module.y + module.height * 0.58} x2={module.x + module.width * 0.88} y2={module.y + module.height * 0.58} stroke={color} strokeWidth={0.25} />
             <Polygon points={`${arrowMiddle},${arrowTop} ${module.x + module.width * 0.86},${module.y + module.height * 0.2} ${module.x + module.width * 0.6},${module.y + module.height * 0.2} ${module.x + module.width * 0.6},${module.y + module.height * 0.38} ${module.x + module.width * 0.4},${module.y + module.height * 0.38} ${module.x + module.width * 0.4},${module.y + module.height * 0.2} ${module.x + module.width * 0.14},${module.y + module.height * 0.2}`} fill="#111827" />
-            {showLabels && (
-              <SvgText x={cx} y={module.y + module.height - 1.2} fontSize={2.4} textAnchor="middle" fill="#111827">
-                {index + 1}
-              </SvgText>
-            )}
+            {showLabels && <SvgText x={cx} y={module.y + module.height - 1.2} fontSize={2.4} textAnchor="middle" fill="#111827">{index + 1}</SvgText>}
           </G>
         );
       })}
@@ -189,14 +184,10 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
       <View style={styles.roofPlanningBox}>
         <View style={[styles.roofImageBox, { borderColor: theme.primary }]}> 
           {roofImageUrl ? (
-            <>
+            <View style={styles.roofImageLayer}>
               <Image src={roofImageUrl} style={styles.roofImage} />
-              {hasSavedLayout && (
-                <View style={styles.roofOverlay}>
-                  <RoofPlanSvg layout={layout} showLabels />
-                </View>
-              )}
-            </>
+              {hasSavedLayout && <View style={styles.roofOverlay}><RoofPlanSvg layout={layout} showLabels /></View>}
+            </View>
           ) : (
             <View style={styles.placeholder}>
               <Text style={[styles.placeholderTitle, { color: theme.neutral }]}>Espaço para foto do telhado do cliente</Text>

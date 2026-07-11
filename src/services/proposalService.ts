@@ -51,8 +51,6 @@ export const proposalService = {
       data.solar = null;
     }
     
-    
-    
     return data as Proposal;
   },
 
@@ -80,6 +78,8 @@ export const proposalService = {
       estimated_daily_consumption: formatNumber(proposal.estimated_daily_consumption),
       monthly_consumption_kwh: formatNumber(proposal.monthly_consumption_kwh),
       bill_amount: formatNumber(proposal.bill_amount),
+      roof_type: proposal.roof_type || null,
+      roof_area_m2: formatNumber(proposal.roof_area_m2),
       kit_cost: formatNumber(proposal.kit_cost),
       labor_cost: formatNumber(proposal.labor_cost),
       fixed_costs: formatNumber(proposal.fixed_costs),
@@ -137,7 +137,7 @@ export const proposalService = {
       discount_percentage: proposal.discount_percentage !== undefined ? formatNumber(proposal.discount_percentage) || 0 : 0,
     });
     
-    // Note: To calculate correctly in updates, we'd need the existing values if partial is passed, 
+    // Note: To calculate correctly in updates, we'd need the existing values if partial is passed,
     // but the frontend wizard passes all form values on save.
     // For safety, assuming the frontend provides the entire form values.
     
@@ -149,6 +149,8 @@ export const proposalService = {
     if (proposal.estimated_daily_consumption !== undefined) formattedData.estimated_daily_consumption = formatNumber(proposal.estimated_daily_consumption);
     if (proposal.monthly_consumption_kwh !== undefined) formattedData.monthly_consumption_kwh = formatNumber(proposal.monthly_consumption_kwh);
     if (proposal.bill_amount !== undefined) formattedData.bill_amount = formatNumber(proposal.bill_amount);
+    if (proposal.roof_type !== undefined) formattedData.roof_type = proposal.roof_type || null;
+    if (proposal.roof_area_m2 !== undefined) formattedData.roof_area_m2 = formatNumber(proposal.roof_area_m2);
     if (proposal.kit_cost !== undefined) formattedData.kit_cost = formatNumber(proposal.kit_cost);
     if (proposal.labor_cost !== undefined) formattedData.labor_cost = formatNumber(proposal.labor_cost);
     if (proposal.fixed_costs !== undefined) formattedData.fixed_costs = formatNumber(proposal.fixed_costs);
@@ -193,8 +195,6 @@ export const proposalService = {
       await this.upsertLoads(id, proposal.loads);
     }
     await proposalEventService.logEvent(id, 'updated', 'Proposta atualizada');
-    
-    
     
     return data as Proposal;
   },

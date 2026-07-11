@@ -18,6 +18,15 @@ interface RoofLayoutEditorProps {
   moduleHeightM?: number;
 }
 
+type DragState = {
+  id: string;
+  offsetX: number;
+  offsetY: number;
+  selectedIds: string[];
+  initialModules: Array<Pick<RoofLayoutModule, 'id' | 'x' | 'y' | 'width' | 'height'>>;
+  createdModule?: RoofLayoutModule;
+};
+
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const round = (value: number) => Number(value.toFixed(2));
 
@@ -53,15 +62,23 @@ export function RoofLayoutEditor({
   moduleHeightM = 2.28,
 }: RoofLayoutEditorProps) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const dragRef = useRef<DragState | null>(null);
   const layout = normalizeLayout(value);
   const [selectedStringId, setSelectedStringId] = useState(layout.strings[0]?.id || 'string-1');
-  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(layout.modules[0]?.id || null);
+  const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>(layout.modules[0]?.id ? [layout.modules[0].id] : []);
 
-  const selectedModule = useMemo(
-    () => layout.modules.find((module) => module.id === selectedModuleId) || null,
-    [layout.modules, selectedModuleId]
+  const validSelectedModuleIds = useMemo(
+    () => selectedModuleIds.filter((id) => layout.modules.some((module) => module.id === id)),
+    [layout.modules, selectedModuleIds]
   );
+
+  const selectedModules = useMemo(
+    () => layout.modules.filter((module) => validSelectedModuleIds.includes(module.id)),
+    [layout.modules, validSelectedModuleIds]
+  );
+
+  const selectedModule = selectedModules[0] || null;
+  const selectedCount = selectedModules.length;
 
   const moduleArea = moduleWidthM * moduleHeightM;
   const occupiedArea = layout.modules.length * moduleArea;
@@ -98,7 +115,7 @@ export function RoofLayoutEditor({
     const nextModule = createModule(index, 5 + (index % 8) * 8, 8 + Math.floor(index / 8) * 15);
 
     updateModules([...layout.modules, nextModule]);
-    setSelectedModuleId(nextModule.id);
+    setSelectedModuleIds([nextModule.id]);
   };
 
   const addModuleRow = () => {
@@ -108,32 +125,32 @@ export function RoofLayoutEditor({
     );
 
     updateModules([...layout.modules, ...row]);
-    setSelectedModuleId(row[0]?.id || null);
+    setSelectedModuleIds(row.map((module) => module.id));
   };
 
-  const removeSelectedModule = () => {
-    if (!selectedModuleId) return;
-    updateModules(layout.modules.filter((module) => module.id !== selectedModuleId));
-    setSelectedModuleId(null);
+  const removeSelectedModules = () => {
+    if (validSelectedModuleIds.length === 0) return;
+    updateModules(layout.modules.filter((module) => !validSelectedModuleIds.includes(module.id)));
+    setSelectedModuleIds([]);
   };
 
-  const duplicateSelectedModule = () => {
-    if (!selectedModule) return;
+  const duplicateSelectedModules = () => {
+    if (selectedModules.length === 0) return;
 
-    const duplicate: RoofLayoutModule = {
-      ...selectedModule,
-      id: `mod-${Date.now()}`,
-      x: clamp(selectedModule.x + 2, 0, 100 - selectedModule.width),
-      y: clamp(selectedModule.y + 2, 0, 100 - selectedModule.height),
-    };
+    const duplicates = selectedModules.map((module, index) => ({
+      ...module,
+      id: `mod-${Date.now()}-${index}`,
+      x: clamp(module.x + 2, 0, 100 - module.width),
+      y: clamp(module.y + 2, 0, 100 - module.height),
+    }));
 
-    updateModules([...layout.modules, duplicate]);
-    setSelectedModuleId(duplicate.id);
+    updateModules([...layout.modules, ...duplicates]);
+    setSelectedModuleIds(duplicates.map((module) => module.id));
   };
 
   const clearModules = () => {
     updateModules([]);
-    setSelectedModuleId(null);
+    setSelectedModuleIds([]);
   };
 
   const addString = () => {
@@ -148,11 +165,30 @@ export function RoofLayoutEditor({
     setSelectedStringId(nextString.id);
   };
 
-  const updateSelectedModule = (patch: Partial<RoofLayoutModule>) => {
-    if (!selectedModuleId) return;
+  const removeString = (stringId: string) => {
+    if (layout.strings.length <= 1) return;
+
+    const nextStrings = layout.strings.filter((string) => string.id !== stringId);
+    const fallbackStringId = nextStrings[0]?.id || 'string-1';
+
+    commitLayout({
+      ...layout,
+      strings: nextStrings,
+      modules: layout.modules.map((module) =>
+        module.stringId === stringId ? { ...module, stringId: fallbackStringId } : module
+      ),
+    });
+
+    if (selectedStringId === stringId) {
+      setSelectedStringId(fallbackStringId);
+    }
+  };
+
+  const updatePrimaryModule = (patch: Partial<RoofLayoutModule>) => {
+    if (!selectedModule) return;
     updateModules(
       layout.modules.map((module) =>
-        module.id === selectedModuleId
+        module.id === selectedModule.id
           ? {
               ...module,
               ...patch,
@@ -162,25 +198,108 @@ export function RoofLayoutEditor({
     );
   };
 
+  const updateSelectedModules = (patch: Partial<RoofLayoutModule>) => {
+    if (validSelectedModuleIds.length === 0) return;
+    updateModules(
+      layout.modules.map((module) =>
+        validSelectedModuleIds.includes(module.id)
+          ? {
+              ...module,
+              ...patch,
+            }
+          : module
+      )
+    );
+  };
+
+  const resizeSelectedModules = (factor: number) => {
+    if (validSelectedModuleIds.length === 0) return;
+    updateModules(
+      layout.modules.map((module) =>
+        validSelectedModuleIds.includes(module.id)
+          ? {
+              ...module,
+              width: clamp(round(module.width * factor), 2, 30),
+              height: clamp(round(module.height * factor), 4, 45),
+            }
+          : module
+      )
+    );
+  };
+
   const resetSelectedPerspective = () => {
-    updateSelectedModule({ rotation: 0, skewX: 0, skewY: 0 });
+    updateSelectedModules({ rotation: 0, skewX: 0, skewY: 0 });
+  };
+
+  const toggleModuleSelection = (moduleId: string) => {
+    setSelectedModuleIds((current) =>
+      current.includes(moduleId)
+        ? current.filter((id) => id !== moduleId)
+        : [...current, moduleId]
+    );
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>, module: RoofLayoutModule) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const isCopyDrag = event.ctrlKey && event.altKey;
+
+    if (!isCopyDrag && (event.shiftKey || event.metaKey || event.ctrlKey)) {
+      return;
+    }
+
     const rect = canvas.getBoundingClientRect();
     const moduleLeft = rect.left + (module.x / 100) * rect.width;
     const moduleTop = rect.top + (module.y / 100) * rect.height;
 
+    const activeModule: RoofLayoutModule = isCopyDrag
+      ? {
+          ...module,
+          id: `mod-${Date.now()}`,
+        }
+      : module;
+
+    const nextSelectedIds = isCopyDrag
+      ? [activeModule.id]
+      : validSelectedModuleIds.includes(module.id) && validSelectedModuleIds.length > 1
+        ? validSelectedModuleIds
+        : [module.id];
+
+    if (isCopyDrag) {
+      updateModules([...layout.modules, activeModule]);
+      setSelectedModuleIds([activeModule.id]);
+    } else {
+      setSelectedModuleIds(nextSelectedIds);
+    }
+
     dragRef.current = {
-      id: module.id,
+      id: activeModule.id,
       offsetX: event.clientX - moduleLeft,
       offsetY: event.clientY - moduleTop,
+      selectedIds: nextSelectedIds,
+      initialModules: [
+        ...layout.modules,
+        ...(isCopyDrag ? [activeModule] : []),
+      ]
+        .filter((item) => nextSelectedIds.includes(item.id))
+        .map((item) => ({ id: item.id, x: item.x, y: item.y, width: item.width, height: item.height })),
+      createdModule: isCopyDrag ? activeModule : undefined,
     };
-    setSelectedModuleId(module.id);
+
+    event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleModuleClick = (event: React.MouseEvent<HTMLButtonElement>, moduleId: string) => {
+    if (event.ctrlKey && event.altKey) return;
+
+    if (event.shiftKey || event.metaKey || event.ctrlKey) {
+      toggleModuleSelection(moduleId);
+      return;
+    }
+
+    setSelectedModuleIds([moduleId]);
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -188,23 +307,31 @@ export function RoofLayoutEditor({
     const canvas = canvasRef.current;
     if (!drag || !canvas) return;
 
+    const baseModules = drag.createdModule && !layout.modules.some((item) => item.id === drag.createdModule?.id)
+      ? [...layout.modules, drag.createdModule]
+      : layout.modules;
+
     const rect = canvas.getBoundingClientRect();
-    const module = layout.modules.find((item) => item.id === drag.id);
-    if (!module) return;
+    const module = baseModules.find((item) => item.id === drag.id);
+    const draggedInitialModule = drag.initialModules.find((item) => item.id === drag.id);
+    if (!module || !draggedInitialModule) return;
 
     const nextX = ((event.clientX - rect.left - drag.offsetX) / rect.width) * 100;
     const nextY = ((event.clientY - rect.top - drag.offsetY) / rect.height) * 100;
+    const deltaX = round(nextX) - draggedInitialModule.x;
+    const deltaY = round(nextY) - draggedInitialModule.y;
 
     updateModules(
-      layout.modules.map((item) =>
-        item.id === drag.id
-          ? {
-              ...item,
-              x: clamp(round(nextX), 0, 100 - item.width),
-              y: clamp(round(nextY), 0, 100 - item.height),
-            }
-          : item
-      )
+      baseModules.map((item) => {
+        const initial = drag.initialModules.find((initialModule) => initialModule.id === item.id);
+        if (!initial) return item;
+
+        return {
+          ...item,
+          x: clamp(round(initial.x + deltaX), 0, 100 - item.width),
+          y: clamp(round(initial.y + deltaY), 0, 100 - item.height),
+        };
+      })
     );
   };
 
@@ -236,6 +363,9 @@ export function RoofLayoutEditor({
             <Button type="button" variant="ghost" onClick={clearModules}>Limpar layout</Button>
           </div>
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Dica: use Ctrl/Shift + clique para selecionar vários módulos. Use Ctrl + Alt + clique e arraste para copiar um módulo.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
@@ -285,15 +415,15 @@ export function RoofLayoutEditor({
 
           {layout.modules.map((module, index) => {
             const color = stringColor(module.stringId);
-            const isSelected = selectedModuleId === module.id;
+            const isSelected = validSelectedModuleIds.includes(module.id);
 
             return (
               <button
                 key={module.id}
                 type="button"
                 onPointerDown={(event) => handlePointerDown(event, module)}
-                onClick={() => setSelectedModuleId(module.id)}
-                className={`absolute cursor-move bg-transparent p-0 transition-shadow ${isSelected ? 'ring-2 ring-offset-2 ring-brand-blue' : ''}`}
+                onClick={(event) => handleModuleClick(event, module.id)}
+                className={`absolute cursor-move bg-transparent p-0 transition-shadow ${isSelected ? 'outline outline-2 outline-brand-blue shadow-lg' : ''}`}
                 style={{
                   left: `${module.x}%`,
                   top: `${module.y}%`,
@@ -316,6 +446,9 @@ export function RoofLayoutEditor({
             <p className="mt-1 text-xs text-slate-500">
               {layout.modules.length} módulos posicionados • {occupiedArea.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m² ocupados
             </p>
+            {selectedCount > 1 && (
+              <p className="mt-1 text-xs font-medium text-brand-blue">{selectedCount} módulos selecionados para edição em lote</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -346,7 +479,16 @@ export function RoofLayoutEditor({
                   }
                   className="min-w-0 flex-1 rounded border border-brand-border bg-gray-50 px-2 py-1 text-xs text-brand-dark"
                 />
-                <span className="text-slate-500">{countModulesByString(layout.modules, string.id)}</span>
+                <span className="w-5 text-right text-slate-500">{countModulesByString(layout.modules, string.id)}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={layout.strings.length <= 1}
+                  onClick={() => removeString(string.id)}
+                >
+                  Excluir
+                </Button>
               </div>
             ))}
           </div>
@@ -354,7 +496,14 @@ export function RoofLayoutEditor({
           {selectedModule ? (
             <div className="space-y-3 border-t border-brand-border pt-4">
               <div className="flex items-center justify-between gap-2">
-                <h4 className="text-sm font-semibold text-brand-dark">Módulo selecionado</h4>
+                <div>
+                  <h4 className="text-sm font-semibold text-brand-dark">
+                    {selectedCount > 1 ? 'Módulos selecionados' : 'Módulo selecionado'}
+                  </h4>
+                  {selectedCount > 1 && (
+                    <p className="text-xs text-slate-500">Largura, altura, rotação, skew e string serão aplicados em todos.</p>
+                  )}
+                </div>
                 <Button type="button" variant="ghost" size="sm" onClick={resetSelectedPerspective}>
                   Resetar
                 </Button>
@@ -366,7 +515,7 @@ export function RoofLayoutEditor({
                   <input
                     type="number"
                     value={selectedModule.x}
-                    onChange={(event) => updateSelectedModule({ x: clamp(Number(event.target.value), 0, 100 - selectedModule.width) })}
+                    onChange={(event) => updatePrimaryModule({ x: clamp(Number(event.target.value), 0, 100 - selectedModule.width) })}
                     className="mt-1 w-full rounded border border-brand-border bg-gray-50 px-2 py-1 text-xs"
                   />
                 </label>
@@ -375,7 +524,7 @@ export function RoofLayoutEditor({
                   <input
                     type="number"
                     value={selectedModule.y}
-                    onChange={(event) => updateSelectedModule({ y: clamp(Number(event.target.value), 0, 100 - selectedModule.height) })}
+                    onChange={(event) => updatePrimaryModule({ y: clamp(Number(event.target.value), 0, 100 - selectedModule.height) })}
                     className="mt-1 w-full rounded border border-brand-border bg-gray-50 px-2 py-1 text-xs"
                   />
                 </label>
@@ -387,7 +536,7 @@ export function RoofLayoutEditor({
                     max="30"
                     step="0.5"
                     value={selectedModule.width}
-                    onChange={(event) => updateSelectedModule({ width: clamp(Number(event.target.value), 2, 30) })}
+                    onChange={(event) => updateSelectedModules({ width: clamp(Number(event.target.value), 2, 30) })}
                     className="mt-1 w-full rounded border border-brand-border bg-gray-50 px-2 py-1 text-xs"
                   />
                 </label>
@@ -399,7 +548,7 @@ export function RoofLayoutEditor({
                     max="45"
                     step="0.5"
                     value={selectedModule.height}
-                    onChange={(event) => updateSelectedModule({ height: clamp(Number(event.target.value), 4, 45) })}
+                    onChange={(event) => updateSelectedModules({ height: clamp(Number(event.target.value), 4, 45) })}
                     className="mt-1 w-full rounded border border-brand-border bg-gray-50 px-2 py-1 text-xs"
                   />
                 </label>
@@ -410,7 +559,7 @@ export function RoofLayoutEditor({
                     min="-180"
                     max="180"
                     value={selectedModule.rotation}
-                    onChange={(event) => updateSelectedModule({ rotation: clamp(Number(event.target.value) || 0, -180, 180) })}
+                    onChange={(event) => updateSelectedModules({ rotation: clamp(Number(event.target.value) || 0, -180, 180) })}
                     className="mt-1 w-full rounded border border-brand-border bg-gray-50 px-2 py-1 text-xs"
                   />
                 </label>
@@ -421,7 +570,7 @@ export function RoofLayoutEditor({
                     min="-45"
                     max="45"
                     value={selectedModule.skewX || 0}
-                    onChange={(event) => updateSelectedModule({ skewX: clamp(Number(event.target.value) || 0, -45, 45) })}
+                    onChange={(event) => updateSelectedModules({ skewX: clamp(Number(event.target.value) || 0, -45, 45) })}
                     className="mt-1 w-full rounded border border-brand-border bg-gray-50 px-2 py-1 text-xs"
                   />
                 </label>
@@ -432,7 +581,7 @@ export function RoofLayoutEditor({
                     min="-45"
                     max="45"
                     value={selectedModule.skewY || 0}
-                    onChange={(event) => updateSelectedModule({ skewY: clamp(Number(event.target.value) || 0, -45, 45) })}
+                    onChange={(event) => updateSelectedModules({ skewY: clamp(Number(event.target.value) || 0, -45, 45) })}
                     className="mt-1 w-full rounded border border-brand-border bg-gray-50 px-2 py-1 text-xs"
                   />
                 </label>
@@ -440,7 +589,7 @@ export function RoofLayoutEditor({
                   String
                   <Select
                     value={selectedModule.stringId}
-                    onChange={(event) => updateSelectedModule({ stringId: event.target.value })}
+                    onChange={(event) => updateSelectedModules({ stringId: event.target.value })}
                     className="mt-1 h-8 text-xs"
                   >
                     {layout.strings.map((string) => (
@@ -451,32 +600,16 @@ export function RoofLayoutEditor({
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => updateSelectedModule({
-                    width: clamp(round(selectedModule.width * 0.9), 2, 30),
-                    height: clamp(round(selectedModule.height * 0.9), 4, 45),
-                  })}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => resizeSelectedModules(0.9)}>
                   Diminuir
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => updateSelectedModule({
-                    width: clamp(round(selectedModule.width * 1.1), 2, 30),
-                    height: clamp(round(selectedModule.height * 1.1), 4, 45),
-                  })}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => resizeSelectedModules(1.1)}>
                   Aumentar
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={duplicateSelectedModule}>
+                <Button type="button" variant="outline" size="sm" onClick={duplicateSelectedModules}>
                   Duplicar
                 </Button>
-                <Button type="button" variant="destructive" size="sm" onClick={removeSelectedModule}>
+                <Button type="button" variant="destructive" size="sm" onClick={removeSelectedModules}>
                   Excluir módulo
                 </Button>
               </div>

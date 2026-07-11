@@ -5,204 +5,36 @@ import { DEFAULT_ROOF_LAYOUT_STRINGS, RoofLayoutData, RoofLayoutModule } from '.
 import { getSectionTitleStyle, usePdfTheme } from '../pdfTheme';
 
 const styles = StyleSheet.create({
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#18181b',
-    borderBottomWidth: 2,
-    borderBottomStyle: 'solid',
-    borderBottomColor: '#3b82f6',
-    paddingBottom: 5,
-  },
-  intro: {
-    fontSize: 12,
-    color: '#3f3f46',
-    lineHeight: 1.5,
-    marginBottom: 18,
-  },
-  grid: {
-    display: 'flex',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  card: {
-    width: '48%',
-    backgroundColor: '#f8fafc',
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: '#e4e4e7',
-  },
-  cardLabel: {
-    fontSize: 9,
-    color: '#71717a',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  cardValue: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#18181b',
-  },
-  roofSectionTitle: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#18181b',
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  roofInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  roofInfoCard: {
-    width: '48%',
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: '#e4e4e7',
-    borderRadius: 8,
-    padding: 9,
-    marginBottom: 8,
-  },
-  roofInfoLabel: {
-    fontSize: 8,
-    color: '#71717a',
-    textTransform: 'uppercase',
-    marginBottom: 3,
-  },
-  roofInfoValue: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#18181b',
-  },
-  roofPlanningBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  roofImageBox: {
-    width: '58%',
-    height: 174,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#94a3b8',
-    borderRadius: 8,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
-    position: 'relative',
-  },
-  roofImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  },
-  roofOverlay: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    right: 0,
-    bottom: 0,
-  },
-  placeholder: {
-    padding: 14,
-  },
-  placeholderTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#334155',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  placeholderText: {
-    fontSize: 9,
-    color: '#64748b',
-    lineHeight: 1.4,
-    textAlign: 'center',
-  },
-  modulePlanBox: {
-    width: '38%',
-    height: 174,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: '#e4e4e7',
-    borderRadius: 8,
-    padding: 10,
-  },
-  planTitle: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#18181b',
-    marginBottom: 6,
-  },
-  planSvg: {
-    width: '100%',
-    height: 92,
-    backgroundColor: '#ffffff',
-    borderRadius: 4,
-  },
-  legend: {
-    marginTop: 7,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 3,
-  },
-  legendDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginRight: 5,
-  },
-  legendText: {
-    fontSize: 8,
-    color: '#52525b',
-  },
-  planNote: {
-    fontSize: 7,
-    color: '#71717a',
-    lineHeight: 1.25,
-    marginTop: 4,
-  },
-  objectiveBox: {
-    backgroundColor: '#ecfdf5',
-    borderLeftWidth: 4,
-    borderLeftStyle: 'solid',
-    borderLeftColor: '#10b981',
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 6,
-  },
-  objectiveTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#047857',
-    marginBottom: 6,
-  },
-  objectiveText: {
-    fontSize: 11,
-    color: '#065f46',
-    lineHeight: 1.45,
-  },
-  note: {
-    fontSize: 10,
-    color: '#71717a',
-    marginTop: 16,
-    lineHeight: 1.4,
-    fontStyle: 'italic',
-  },
+  sectionTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#18181b', borderBottomWidth: 2, borderBottomStyle: 'solid', borderBottomColor: '#3b82f6', paddingBottom: 5 },
+  intro: { fontSize: 12, color: '#3f3f46', lineHeight: 1.5, marginBottom: 18 },
+  grid: { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 14 },
+  card: { width: '48%', backgroundColor: '#f8fafc', padding: 14, borderRadius: 8, marginBottom: 14, borderWidth: 1, borderStyle: 'solid', borderColor: '#e4e4e7' },
+  cardLabel: { fontSize: 9, color: '#71717a', textTransform: 'uppercase', marginBottom: 4 },
+  cardValue: { fontSize: 17, fontWeight: 'bold', color: '#18181b' },
+  roofSectionTitle: { fontSize: 13, fontWeight: 'bold', color: '#18181b', marginBottom: 8, marginTop: 4 },
+  roofInfoGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
+  roofInfoCard: { width: '48%', backgroundColor: '#f8fafc', borderWidth: 1, borderStyle: 'solid', borderColor: '#e4e4e7', borderRadius: 8, padding: 9, marginBottom: 8 },
+  roofInfoLabel: { fontSize: 8, color: '#71717a', textTransform: 'uppercase', marginBottom: 3 },
+  roofInfoValue: { fontSize: 11, fontWeight: 'bold', color: '#18181b' },
+  roofPlanningBox: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  roofImageBox: { width: '58%', height: 174, backgroundColor: '#f8fafc', borderWidth: 1, borderStyle: 'dashed', borderColor: '#94a3b8', borderRadius: 8, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 0, position: 'relative' },
+  roofImage: { width: '100%', height: '100%', objectFit: 'cover' },
+  roofOverlay: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 },
+  placeholder: { padding: 14 },
+  placeholderTitle: { fontSize: 12, fontWeight: 'bold', color: '#334155', marginBottom: 6, textAlign: 'center' },
+  placeholderText: { fontSize: 9, color: '#64748b', lineHeight: 1.4, textAlign: 'center' },
+  modulePlanBox: { width: '38%', height: 174, backgroundColor: '#f8fafc', borderWidth: 1, borderStyle: 'solid', borderColor: '#e4e4e7', borderRadius: 8, padding: 10 },
+  planTitle: { fontSize: 10, fontWeight: 'bold', color: '#18181b', marginBottom: 6 },
+  planSvg: { width: '100%', height: 92, borderRadius: 4 },
+  legend: { marginTop: 7 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
+  legendDot: { width: 7, height: 7, borderRadius: 4, marginRight: 5 },
+  legendText: { fontSize: 8, color: '#52525b' },
+  planNote: { fontSize: 7, color: '#71717a', lineHeight: 1.25, marginTop: 4 },
+  objectiveBox: { backgroundColor: '#ecfdf5', borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: '#10b981', padding: 16, borderRadius: 8, marginTop: 6 },
+  objectiveTitle: { fontSize: 12, fontWeight: 'bold', color: '#047857', marginBottom: 6 },
+  objectiveText: { fontSize: 11, color: '#065f46', lineHeight: 1.45 },
+  note: { fontSize: 10, color: '#71717a', marginTop: 16, lineHeight: 1.4, fontStyle: 'italic' },
 });
 
 const formatMoney = (val: number | null | undefined) => {
@@ -262,16 +94,7 @@ function RoofPlanSvg({ layout, showLabels = false }: { layout: RoofLayoutData; s
           const y2 = module.y + module.height / 2;
 
           return (
-            <Line
-              key={`${string.id}-${module.id}`}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke={string.color}
-              strokeWidth={0.45}
-              strokeDasharray="1 0.8"
-            />
+            <Line key={`${string.id}-${module.id}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={string.color} strokeWidth={0.45} strokeDasharray="1 0.8" />
           );
         });
       })}
@@ -285,31 +108,12 @@ function RoofPlanSvg({ layout, showLabels = false }: { layout: RoofLayoutData; s
 
         return (
           <G key={module.id} transform={`rotate(${module.rotation || 0} ${cx} ${cy})`}>
-            <Rect
-              x={module.x}
-              y={module.y}
-              width={module.width}
-              height={module.height}
-              rx={0.8}
-              fill="#F8FAFC"
-              stroke={color}
-              strokeWidth={0.7}
-            />
-            <Rect
-              x={module.x + module.width * 0.12}
-              y={module.y + module.height * 0.18}
-              width={module.width * 0.76}
-              height={module.height * 0.58}
-              fill={color}
-              opacity={0.16}
-            />
+            <Rect x={module.x} y={module.y} width={module.width} height={module.height} rx={0.8} fill="#F8FAFC" stroke={color} strokeWidth={0.7} />
+            <Rect x={module.x + module.width * 0.12} y={module.y + module.height * 0.18} width={module.width * 0.76} height={module.height * 0.58} fill={color} opacity={0.16} />
             <Line x1={module.x + module.width * 0.5} y1={module.y + module.height * 0.18} x2={module.x + module.width * 0.5} y2={module.y + module.height * 0.76} stroke={color} strokeWidth={0.25} />
             <Line x1={module.x + module.width * 0.12} y1={module.y + module.height * 0.38} x2={module.x + module.width * 0.88} y2={module.y + module.height * 0.38} stroke={color} strokeWidth={0.25} />
             <Line x1={module.x + module.width * 0.12} y1={module.y + module.height * 0.58} x2={module.x + module.width * 0.88} y2={module.y + module.height * 0.58} stroke={color} strokeWidth={0.25} />
-            <Polygon
-              points={`${arrowMiddle},${arrowTop} ${module.x + module.width * 0.86},${module.y + module.height * 0.2} ${module.x + module.width * 0.6},${module.y + module.height * 0.2} ${module.x + module.width * 0.6},${module.y + module.height * 0.38} ${module.x + module.width * 0.4},${module.y + module.height * 0.38} ${module.x + module.width * 0.4},${module.y + module.height * 0.2} ${module.x + module.width * 0.14},${module.y + module.height * 0.2}`}
-              fill="#111827"
-            />
+            <Polygon points={`${arrowMiddle},${arrowTop} ${module.x + module.width * 0.86},${module.y + module.height * 0.2} ${module.x + module.width * 0.6},${module.y + module.height * 0.2} ${module.x + module.width * 0.6},${module.y + module.height * 0.38} ${module.x + module.width * 0.4},${module.y + module.height * 0.38} ${module.x + module.width * 0.4},${module.y + module.height * 0.2} ${module.x + module.width * 0.14},${module.y + module.height * 0.2}`} fill="#111827" />
             {showLabels && (
               <SvgText x={cx} y={module.y + module.height - 1.2} fontSize={2.4} textAnchor="middle" fill="#111827">
                 {index + 1}
@@ -326,11 +130,7 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
   const theme = usePdfTheme();
   const solar = proposal.solar;
   const generationTarget = solar?.generation_target_percent || 100;
-  const roofImageUrl =
-    proposal.roof_image_url ||
-    proposal.roof_photo_url ||
-    proposal.roof_plan_image_url ||
-    null;
+  const roofImageUrl = proposal.roof_image_url || proposal.roof_photo_url || proposal.roof_plan_image_url || null;
   const roofType = proposal.roof_type || 'A definir';
   const savedLayout = proposal.roof_layout_json;
   const hasSavedLayout = !!savedLayout?.modules?.length;
@@ -344,9 +144,7 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
   return (
     <View>
       <Text style={[styles.sectionTitle, getSectionTitleStyle(theme)]}>Diagnóstico Energético</Text>
-      <Text style={styles.intro}>
-        Esta etapa resume a situação de consumo considerada no dimensionamento e os dados usados para estimar a economia do sistema.
-      </Text>
+      <Text style={styles.intro}>Esta etapa resume a situação de consumo considerada no dimensionamento e os dados usados para estimar a economia do sistema.</Text>
 
       <View style={styles.grid}>
         <View style={[styles.card, { borderColor: theme.border }]}> 
@@ -402,9 +200,7 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
           ) : (
             <View style={styles.placeholder}>
               <Text style={[styles.placeholderTitle, { color: theme.neutral }]}>Espaço para foto do telhado do cliente</Text>
-              <Text style={styles.placeholderText}>
-                Área reservada para inserir a imagem real do local de instalação, com visão do telhado ou área onde os módulos serão posicionados.
-              </Text>
+              <Text style={styles.placeholderText}>Área reservada para inserir a imagem real do local de instalação, com visão do telhado ou área onde os módulos serão posicionados.</Text>
             </View>
           )}
         </View>
@@ -423,24 +219,16 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
               );
             })}
           </View>
-          <Text style={styles.planNote}>
-            Representação preliminar das strings. A posição final depende da visita técnica, orientação, sombreamento e estrutura.
-          </Text>
+          <Text style={styles.planNote}>Representação preliminar das strings. A posição final depende da visita técnica, orientação, sombreamento e estrutura.</Text>
         </View>
       </View>
 
       <View style={[styles.objectiveBox, { backgroundColor: theme.secondarySoft, borderLeftColor: theme.secondary }]}> 
         <Text style={[styles.objectiveTitle, { color: theme.secondary }]}>Objetivo da solução</Text>
-        <Text style={[styles.objectiveText, { color: theme.neutral }]}> 
-          Dimensionar um sistema fotovoltaico capaz de atender aproximadamente {generationTarget.toFixed(0)}% do consumo considerado,
-          respeitando os parâmetros técnicos de irradiação solar, rendimento, potência dos módulos e relação DC/AC do inversor.
-        </Text>
+        <Text style={[styles.objectiveText, { color: theme.neutral }]}>Dimensionar um sistema fotovoltaico capaz de atender aproximadamente {generationTarget.toFixed(0)}% do consumo considerado, respeitando os parâmetros técnicos de irradiação solar, rendimento, potência dos módulos e relação DC/AC do inversor.</Text>
       </View>
 
-      <Text style={styles.note}>
-        Observação: valores de consumo, tarifa e economia podem variar conforme hábitos de uso, reajustes tarifários, bandeiras, impostos,
-        disponibilidade solar e regras de compensação vigentes.
-      </Text>
+      <Text style={styles.note}>Observação: valores de consumo, tarifa e economia podem variar conforme hábitos de uso, reajustes tarifários, bandeiras, impostos, disponibilidade solar e regras de compensação vigentes.</Text>
     </View>
   );
 };

@@ -13,6 +13,11 @@ export interface Proposal {
   monthly_consumption_kwh: number | null;
   bill_amount: number | null;
   energy_tariff: number | null;
+  roof_type?: string | null;
+  roof_area_m2?: number | null;
+  roof_image_url?: string | null;
+  roof_photo_url?: string | null;
+  roof_plan_image_url?: string | null;
   kit_cost: number | null;
   labor_cost: number | null;
   fixed_costs: number | null;

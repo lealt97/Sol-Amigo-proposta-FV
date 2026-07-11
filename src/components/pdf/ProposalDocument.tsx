@@ -91,6 +91,9 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({ proposal, co
 
       <PageSection>
         <WarrantyAndNextStepsSection proposal={proposal} />
+      </PageSection>
+
+      <PageSection>
         <AcceptanceSection proposal={proposal} />
       </PageSection>
     </Document>

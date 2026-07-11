@@ -55,6 +55,31 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 4,
   },
+  roofInfoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  roofInfoCard: {
+    width: '48%',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#e4e4e7',
+    borderRadius: 8,
+    padding: 10,
+  },
+  roofInfoLabel: {
+    fontSize: 8,
+    color: '#71717a',
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+  roofInfoValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#18181b',
+  },
   roofPlanningBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -165,6 +190,11 @@ const formatKwh = (val: number | null | undefined) => {
   return `${val.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kWh`;
 };
 
+const formatArea = (val: number | null | undefined) => {
+  if (val === null || val === undefined || val <= 0) return 'A definir';
+  return `${val.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m²`;
+};
+
 const sourceLabel: Record<string, string> = {
   average: 'Consumo médio informado',
   historical: 'Histórico de consumo',
@@ -176,10 +206,11 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
   const solar = proposal.solar;
   const generationTarget = solar?.generation_target_percent || 100;
   const roofImageUrl =
-    (proposal as any).roof_image_url ||
-    (proposal as any).roof_photo_url ||
-    (proposal as any).roof_plan_image_url ||
+    proposal.roof_image_url ||
+    proposal.roof_photo_url ||
+    proposal.roof_plan_image_url ||
     null;
+  const roofType = proposal.roof_type || 'A definir';
   const moduleCount = Math.min(Math.max(solar?.panel_count || 8, 4), 24);
 
   return (
@@ -209,6 +240,18 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
       </View>
 
       <Text style={[styles.roofSectionTitle, { color: theme.neutral }]}>Foto do telhado e planimetria dos módulos</Text>
+
+      <View style={styles.roofInfoGrid}>
+        <View style={[styles.roofInfoCard, { borderColor: theme.border }]}> 
+          <Text style={styles.roofInfoLabel}>Tipo de telhado</Text>
+          <Text style={[styles.roofInfoValue, { color: theme.neutral }]}>{roofType}</Text>
+        </View>
+        <View style={[styles.roofInfoCard, { borderColor: theme.border }]}> 
+          <Text style={styles.roofInfoLabel}>Área útil informada</Text>
+          <Text style={[styles.roofInfoValue, { color: theme.neutral }]}>{formatArea(proposal.roof_area_m2)}</Text>
+        </View>
+      </View>
+
       <View style={styles.roofPlanningBox}>
         <View style={[styles.roofImageBox, { borderColor: theme.primary }]}> 
           {roofImageUrl ? (

@@ -23,6 +23,7 @@ const round = (value: number) => Number(value.toFixed(2));
 
 function normalizeLayout(value?: RoofLayoutData | null): RoofLayoutData {
   const strings = value?.strings?.length ? value.strings : DEFAULT_ROOF_LAYOUT_STRINGS;
+
   return {
     ...EMPTY_ROOF_LAYOUT,
     ...value,
@@ -215,33 +216,35 @@ export function RoofLayoutEditor({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-        <div className="space-y-1 sm:w-56">
-          <label className="text-xs font-medium text-slate-500">String ativa</label>
-          <Select value={selectedStringId} onChange={(event) => setSelectedStringId(event.target.value)}>
-            {layout.strings.map((string) => (
-              <option key={string.id} value={string.id}>
-                {string.name}
-              </option>
-            ))}
-          </Select>
-        </div>
+      <div className="rounded-xl border border-brand-border bg-white p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-1 lg:w-64">
+            <label className="text-xs font-medium text-slate-500">String ativa</label>
+            <Select value={selectedStringId} onChange={(event) => setSelectedStringId(event.target.value)}>
+              {layout.strings.map((string) => (
+                <option key={string.id} value={string.id}>
+                  {string.name}
+                </option>
+              ))}
+            </Select>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={addModule}>Adicionar módulo</Button>
-          <Button type="button" variant="outline" onClick={addModuleRow}>Adicionar linha com 6</Button>
-          <Button type="button" variant="outline" onClick={addString}>Nova string</Button>
-          <Button type="button" variant="ghost" onClick={clearModules}>Limpar layout</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={addModule}>Adicionar módulo</Button>
+            <Button type="button" variant="outline" onClick={addModuleRow}>Adicionar linha com 6</Button>
+            <Button type="button" variant="outline" onClick={addString}>Nova string</Button>
+            <Button type="button" variant="ghost" onClick={clearModules}>Limpar layout</Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <div
           ref={canvasRef}
           onPointerMove={handlePointerMove}
           onPointerUp={stopDragging}
           onPointerLeave={stopDragging}
-          className="relative min-h-[420px] overflow-hidden rounded-xl border border-brand-border bg-slate-100"
+          className="relative min-h-[520px] overflow-hidden rounded-xl border border-brand-border bg-slate-100 lg:sticky lg:top-24"
           style={{
             backgroundImage: roofImageUrl ? `url(${roofImageUrl})` : undefined,
             backgroundSize: 'cover',
@@ -307,15 +310,16 @@ export function RoofLayoutEditor({
           })}
         </div>
 
-        <div className="space-y-4 rounded-xl border border-brand-border bg-white p-4">
+        <aside className="space-y-4 rounded-xl border border-brand-border bg-white p-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
           <div>
             <h3 className="text-sm font-semibold text-brand-dark">Resumo da planimetria</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="mt-1 text-xs text-slate-500">
               {layout.modules.length} módulos posicionados • {occupiedArea.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m² ocupados
             </p>
           </div>
 
           <div className="space-y-2">
+            <p className="text-xs font-medium text-slate-500">Strings</p>
             {layout.strings.map((string) => (
               <div key={string.id} className="flex items-center gap-2 text-xs">
                 <input
@@ -352,7 +356,7 @@ export function RoofLayoutEditor({
               <div className="flex items-center justify-between gap-2">
                 <h4 className="text-sm font-semibold text-brand-dark">Módulo selecionado</h4>
                 <Button type="button" variant="ghost" size="sm" onClick={resetSelectedPerspective}>
-                  Resetar perspectiva
+                  Resetar
                 </Button>
               </div>
 
@@ -486,7 +490,7 @@ export function RoofLayoutEditor({
               Selecione um módulo para ajustar posição, tamanho, rotação, perspectiva e string.
             </p>
           )}
-        </div>
+        </aside>
       </div>
     </div>
   );

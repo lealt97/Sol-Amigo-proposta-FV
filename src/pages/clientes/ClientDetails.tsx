@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase/client';
 import { Client } from '../../types/client';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import { ArrowLeft, Edit, Plus, MapPin, Phone, Mail, FileText, Zap, Trash2, Eye } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, MapPin, Phone, Mail, FileText, Zap, Trash2, Eye, Clock, ArrowRight } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
 import { toast } from 'sonner';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
@@ -18,6 +18,34 @@ export function ClientDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [proposals, setProposals] = useState<any[]>([]);
+
+  const draftProposals = proposals.filter((p) => p.status === 'draft');
+  const latestDraft = draftProposals.length > 0 ? draftProposals[0] : null;
+  const otherProposals = latestDraft 
+    ? proposals.filter((p) => p.id !== latestDraft.id)
+    : proposals;
+
+  const getDraftProgress = (prop: any) => {
+    let stepIndex = 0;
+    let stepName = 'Identificação';
+    
+    if (prop.kit_cost != null && Number(prop.kit_cost) > 0) {
+      stepIndex = 5;
+      stepName = 'Financeiro';
+    } else if (prop.roof_type || (prop.roof_area_m2 != null && Number(prop.roof_area_m2) > 0)) {
+      stepIndex = 4;
+      stepName = 'Custos';
+    } else if (prop.monthly_consumption_kwh != null && Number(prop.monthly_consumption_kwh) > 0) {
+      stepIndex = 2;
+      stepName = 'Projeto Solar';
+    } else if (prop.consumption_source) {
+      stepIndex = 1;
+      stepName = 'Consumo';
+    }
+    
+    const percentage = Math.min(Math.round(((stepIndex + 1) / 7) * 100), 100);
+    return { stepName, percentage, stepIndex };
+  };
 
   // Custom Delete Modal State for Proposals
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -34,7 +62,7 @@ export function ClientDetails() {
         
         const { data: propsData } = await supabase
           .from('proposals')
-          .select('id, title, code, status, final_price, created_at, updated_at, proposal_events(event_type, description, created_at)')
+          .select('*, proposal_events(event_type, description, created_at)')
           .eq('client_id', id)
           .order('created_at', { ascending: false });
         
@@ -227,6 +255,61 @@ export function ClientDetails() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
+              {latestDraft && (
+                <div className="mb-6 p-5 border border-brand-light/20 bg-brand-surface/50 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-md relative overflow-hidden group border-l-4 border-l-brand-blue">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-blue/20 text-brand-light uppercase tracking-wider border border-brand-blue/30">
+                        <Clock className="w-3 h-3 mr-1" /> Rascunho em Andamento
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Última alteração: {formatDate(latestDraft.updated_at || latestDraft.created_at)}
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-bold text-brand-dark group-hover:text-brand-light transition-colors">
+                      {latestDraft.title || 'Nova Proposta Solar'}
+                    </h3>
+                    
+                    {(() => {
+                      const { stepName, percentage } = getDraftProgress(latestDraft);
+                      return (
+                        <div className="space-y-1.5 max-w-md">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-slate-400">Progresso: <strong className="text-brand-light">{stepName}</strong></span>
+                            <span className="font-semibold text-brand-light">{percentage}%</span>
+                          </div>
+                          <div className="w-full bg-brand-border h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-brand-light h-1.5 rounded-full transition-all duration-500" style={{ width: `${percentage}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  
+                  <div className="flex items-center gap-2 w-full md:w-auto shrink-0 mt-2 md:mt-0">
+                    <Button 
+                      onClick={() => {
+                        const { stepIndex } = getDraftProgress(latestDraft);
+                        navigate(`/propostas/${latestDraft.id}/editar?step=${stepIndex}`);
+                      }}
+                      className="flex-1 md:flex-none gap-2 bg-brand-blue hover:bg-brand-blue-hover text-white shadow-lg shadow-brand-blue/20"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      Continuar Rascunho
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-brand-border hover:border-red-500/20"
+                      title="Excluir Rascunho"
+                      onClick={() => triggerDeleteProposal(latestDraft.id, latestDraft.title)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {proposals.length === 0 ? (
               <div className="bg-gray-50 border border-brand-border rounded-lg p-8 flex flex-col items-center justify-center flex-1 text-center min-h-[300px]">
                 <FileText className="w-12 h-12 text-slate-500 mb-4" />
@@ -240,76 +323,91 @@ export function ClientDetails() {
                 </Button>
               </div>
               ) : (
-                <div className="flex-1 overflow-auto max-h-[400px]">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 bg-brand-gray text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      <tr>
-                        <th className="px-4 py-3 border-b border-brand-border">Proposta</th>
-                        <th className="px-4 py-3 border-b border-brand-border">Valor</th>
-                        <th className="px-4 py-3 border-b border-brand-border">Status</th>
-                        <th className="px-4 py-3 border-b border-brand-border">Último Evento</th>
-                        <th className="px-4 py-3 border-b border-brand-border text-right">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-brand-border">
-                      {proposals.map(prop => (
-                        <tr key={prop.id} className="hover:bg-brand-surface transition-colors">
-                          <td className="px-4 py-3">
-                            <p className="text-sm font-medium text-brand-dark">{prop.title || 'Sistema Solar'}</p>
-                            <p className="text-xs text-slate-500">{formatDate(prop.created_at)} {prop.code && `- ${prop.code}`}</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="text-sm text-brand-dark font-medium">{formatMoney(prop.final_price)}</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            {getStatusBadge(prop.status)}
-                          </td>
-                          <td className="px-4 py-3">
-                            {prop.proposal_events && prop.proposal_events.length > 0 ? (
-                              <div>
-                                <p className="text-xs text-brand-dark">{prop.proposal_events.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].description || prop.proposal_events[0].event_type}</p>
-                                <p className="text-[10px] text-slate-500">{formatDate(prop.proposal_events.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at)}</p>
-                              </div>
-                            ) : (
-                              <p className="text-xs text-slate-500">-</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
-                                title="Visualizar Proposta"
-                                onClick={() => navigate(`/propostas/${prop.id}`)}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                                title="Editar Proposta"
-                                onClick={() => navigate(`/propostas/${prop.id}/editar`)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
-                                title="Excluir Proposta"
-                                onClick={() => triggerDeleteProposal(prop.id, prop.title)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  {otherProposals.length > 0 ? (
+                    <div className="flex-1 overflow-auto max-h-[400px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 bg-brand-gray text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          <tr>
+                            <th className="px-4 py-3 border-b border-brand-border">Proposta</th>
+                            <th className="px-4 py-3 border-b border-brand-border">Valor</th>
+                            <th className="px-4 py-3 border-b border-brand-border">Status</th>
+                            <th className="px-4 py-3 border-b border-brand-border">Último Evento</th>
+                            <th className="px-4 py-3 border-b border-brand-border text-right">Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-brand-border">
+                          {otherProposals.map(prop => (
+                            <tr key={prop.id} className="hover:bg-brand-surface transition-colors">
+                              <td className="px-4 py-3">
+                                <p className="text-sm font-medium text-brand-dark">{prop.title || 'Sistema Solar'}</p>
+                                <p className="text-xs text-slate-500">{formatDate(prop.created_at)} {prop.code && `- ${prop.code}`}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="text-sm text-brand-dark font-medium">{formatMoney(prop.final_price)}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                {getStatusBadge(prop.status)}
+                              </td>
+                              <td className="px-4 py-3">
+                                {prop.proposal_events && prop.proposal_events.length > 0 ? (
+                                  <div>
+                                    <p className="text-xs text-brand-dark">{prop.proposal_events.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].description || prop.proposal_events[0].event_type}</p>
+                                    <p className="text-[10px] text-slate-500">{formatDate(prop.proposal_events.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at)}</p>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-slate-500">-</p>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
+                                    title="Visualizar Proposta"
+                                    onClick={() => navigate(`/propostas/${prop.id}`)}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
+                                    title="Editar Proposta"
+                                    onClick={() => navigate(`/propostas/${prop.id}/editar`)}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
+                                    title="Excluir Proposta"
+                                    onClick={() => triggerDeleteProposal(prop.id, prop.title)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex justify-center">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => navigate(`/propostas/nova?clienteId=${client.id}`)}
+                        className="gap-2 text-slate-400 border-dashed hover:border-solid border-brand-border hover:text-brand-dark"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Iniciar Outra Proposta do Zero
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
 
             </CardContent>

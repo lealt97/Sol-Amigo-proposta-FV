@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,6 +48,16 @@ export function ProposalWizard() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
+  const [proposalId, setProposalId] = useState<string | null>(id || null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+
+  const isSubmittedRef = useRef(false);
+  const proposalIdRef = useRef<string | null>(id || null);
+  const isInitializedRef = useRef(false);
+
+  useEffect(() => {
+    proposalIdRef.current = proposalId;
+  }, [proposalId]);
 
   const methods = useForm<ProposalFormValues>({
     resolver: zodResolver(proposalSchema),
@@ -79,6 +89,9 @@ export function ProposalWizard() {
 
   useEffect(() => {
     async function initWizard() {
+      if (isInitializedRef.current && id === proposalIdRef.current) {
+        return;
+      }
       try {
         if (id) {
           const proposal = await proposalService.getProposalById(id);
@@ -117,11 +130,65 @@ export function ProposalWizard() {
             energy_tariff: proposal.solar?.energy_tariff || proposal.energy_tariff || '',
             loads: proposal.loads || [],
           });
+
+          // Resume from the correct step
+          const stepParam = searchParams.get('step');
+          if (stepParam !== null) {
+            const parsedStep = parseInt(stepParam, 10);
+            if (!isNaN(parsedStep) && parsedStep >= 0 && parsedStep < STEPS.length) {
+              setCurrentStep(parsedStep);
+            }
+          } else {
+            // Auto-detect step based on completed data
+            let resumeStep = 0;
+            const hasClient = !!proposal.client_id;
+            const hasConsumption = !!(
+              proposal.consumption_source &&
+              (proposal.monthly_consumption_kwh ||
+               proposal.bill_amount ||
+               (proposal as any).history?.length > 0)
+            );
+            const hasProject = !!(
+              proposal.solar?.hsp ||
+              proposal.solar?.panel_power_w ||
+              proposal.solar?.energy_tariff ||
+              proposal.energy_tariff
+            );
+            const hasInstallation = !!(
+              proposal.roof_type ||
+              (proposal.roof_area_m2 && Number(proposal.roof_area_m2) > 0)
+            );
+            const hasCosts = !!(
+              proposal.kit_cost && Number(proposal.kit_cost) > 0
+            );
+            const hasFinancial = !!(
+              proposal.margin_percentage && Number(proposal.margin_percentage) > 0
+            );
+
+            if (hasFinancial) {
+              resumeStep = 6; // Preview
+            } else if (hasCosts) {
+              resumeStep = 5; // Financial
+            } else if (hasInstallation) {
+              resumeStep = 4; // Costs
+            } else if (hasProject) {
+              resumeStep = 3; // Installation
+            } else if (hasConsumption) {
+              resumeStep = 2; // Project
+            } else if (hasClient) {
+              resumeStep = 1; // Consumption
+            }
+            setCurrentStep(resumeStep);
+          }
+
+          setProposalId(id);
+          isInitializedRef.current = true;
         } else if (user) {
           const profile = await profileService.getProfile(user.id);
           if (profile?.default_margin_percentage) {
             methods.setValue('margin_percentage', profile.default_margin_percentage);
           }
+          isInitializedRef.current = true;
         }
       } catch (err: any) {
         setError(err.message || 'Erro ao inicializar wizard');
@@ -130,7 +197,87 @@ export function ProposalWizard() {
       }
     }
     initWizard();
-  }, [id, methods, user]);
+  }, [id, methods, user, searchParams]);
+
+  const saveDraft = async (values: ProposalFormValues, currentId: string | null) => {
+    if (!user) return currentId;
+    if (!values.client_id) return currentId;
+
+    try {
+      if (currentId) {
+        await proposalService.updateProposal(currentId, values);
+        return currentId;
+      } else {
+        const newProposal = await proposalService.createProposal(values, user.id);
+        proposalIdRef.current = newProposal.id;
+        setProposalId(newProposal.id);
+        navigate(`/propostas/${newProposal.id}/editar`, { replace: true });
+        return newProposal.id;
+      }
+    } catch (err) {
+      console.error('Error auto-saving draft:', err);
+      return currentId;
+    }
+  };
+
+  const formValues = methods.watch();
+  const latestValuesRef = useRef<ProposalFormValues>(methods.getValues());
+
+  useEffect(() => {
+    latestValuesRef.current = formValues;
+  }, [formValues]);
+
+  // Debounced auto-save on form values change
+  useEffect(() => {
+    if (isSubmittedRef.current) return;
+    if (!formValues.client_id) return;
+
+    const timer = setTimeout(async () => {
+      setIsAutoSaving(true);
+      const currentId = proposalIdRef.current;
+      await saveDraft(formValues, currentId);
+      setIsAutoSaving(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [formValues, user]);
+
+  // Save on unmount (when leaving the flow / navigating away)
+  useEffect(() => {
+    return () => {
+      if (isSubmittedRef.current) return;
+      const values = latestValuesRef.current;
+      const currentId = proposalIdRef.current;
+      if (user && values && values.client_id) {
+        if (currentId) {
+          proposalService.updateProposal(currentId, values)
+            .catch(err => console.error('Error saving on unmount:', err));
+        } else {
+          proposalService.createProposal(values, user.id)
+            .catch(err => console.error('Error creating on unmount:', err));
+        }
+      }
+    };
+  }, [user]);
+
+  // Handle page reload or closing the browser tab
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isSubmittedRef.current) return;
+      const values = latestValuesRef.current;
+      const currentId = proposalIdRef.current;
+      if (user && values && values.client_id) {
+        if (currentId) {
+          proposalService.updateProposal(currentId, values).catch(() => {});
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user]);
 
   const handleNext = async () => {
     const validation = validateProposalStep(currentStep, methods.getValues());
@@ -145,11 +292,25 @@ export function ProposalWizard() {
 
     applyValidationUpdates(validation.updates);
     setError(null);
+
+    const latestValues = {
+      ...methods.getValues(),
+      ...(validation.updates || {}),
+    };
+    setIsAutoSaving(true);
+    await saveDraft(latestValues, proposalIdRef.current);
+    setIsAutoSaving(false);
+
     setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
   };
 
-  const handlePrev = () => {
+  const handlePrev = async () => {
     setError(null);
+
+    setIsAutoSaving(true);
+    await saveDraft(methods.getValues(), proposalIdRef.current);
+    setIsAutoSaving(false);
+
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
@@ -158,7 +319,7 @@ export function ProposalWizard() {
 
     const validation = validateFullProposal(methods.getValues());
     if (!validation.isValid) {
-      setError(validation.message || 'Preencha as informações obrigatórias antes de salvar a proposta.');
+      setError(validation.message || 'Preencha as informações obrigatórias antes de concluir a proposta.');
       if (validation.stepIndex !== undefined) {
         setCurrentStep(validation.stepIndex);
       }
@@ -173,15 +334,20 @@ export function ProposalWizard() {
         ...methods.getValues(),
         ...(validation.updates || {}),
       };
-      if (isEditing) {
-        await proposalService.updateProposal(id, data);
-        navigate(`/propostas/${id}`);
+
+      isSubmittedRef.current = true;
+
+      const currentId = proposalIdRef.current;
+      if (currentId) {
+        await proposalService.updateProposal(currentId, data);
+        navigate(`/propostas/${currentId}`);
       } else {
         const newProposal = await proposalService.createProposal(data, user.id);
         navigate(`/propostas/${newProposal.id}`);
       }
     } catch (err: any) {
-      setError(err.message || 'Erro ao salvar rascunho');
+      isSubmittedRef.current = false;
+      setError(err.message || 'Erro ao concluir proposta');
     } finally {
       setIsSaving(false);
     }
@@ -209,10 +375,19 @@ export function ProposalWizard() {
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={onSaveDraft} isLoading={isSaving} className="gap-2">
-          <Save className="w-4 h-4" />
-          Salvar Rascunho
-        </Button>
+        <div className="flex items-center gap-2 bg-brand-surface/50 px-4 py-2 rounded-lg border border-brand-border text-sm">
+          {isAutoSaving ? (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-brand-blue animate-ping" />
+              <span className="text-slate-400 font-medium text-xs">Salvando rascunho...</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-slate-500 text-xs">Rascunho salvo automaticamente</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">

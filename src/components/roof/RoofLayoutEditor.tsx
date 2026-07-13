@@ -76,6 +76,7 @@ export function RoofLayoutEditor({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const layout = normalizeLayout(value);
+
   const [selectedStringId, setSelectedStringId] = useState(layout.strings[0]?.id || 'string-1');
   const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>(layout.modules[0]?.id ? [layout.modules[0].id] : []);
   const [moduleClipboard, setModuleClipboard] = useState<RoofLayoutModule[]>([]);
@@ -93,7 +94,6 @@ export function RoofLayoutEditor({
 
   const selectedModule = selectedModules[0] || null;
   const selectedCount = selectedModules.length;
-
   const moduleArea = moduleWidthM * moduleHeightM;
   const occupiedArea = layout.modules.length * moduleArea;
 
@@ -136,7 +136,6 @@ export function RoofLayoutEditor({
   const addModule = () => {
     const index = layout.modules.length;
     const nextModule = createModule(index, 5 + (index % 8) * 8, 8 + Math.floor(index / 8) * 15);
-
     updateModules([...layout.modules, nextModule]);
     setSelectedModuleIds([nextModule.id]);
   };
@@ -146,7 +145,6 @@ export function RoofLayoutEditor({
     const row = Array.from({ length: 6 }).map((_, index) =>
       createModule(startIndex + index, 5 + index * 8, 8 + Math.floor(startIndex / 8) * 15)
     );
-
     updateModules([...layout.modules, ...row]);
     setSelectedModuleIds(row.map((module) => module.id));
   };
@@ -433,6 +431,18 @@ export function RoofLayoutEditor({
     if (key === 'd' && selectedModules.length > 0) {
       event.preventDefault();
       duplicateSelectedModules();
+      return;
+    }
+
+    if ((key === '+' || key === '=' || event.code === 'Equal' || event.code === 'NumpadAdd') && selectedModules.length > 0) {
+      event.preventDefault();
+      resizeSelectedModules(1.1);
+      return;
+    }
+
+    if ((key === '-' || key === '_' || event.code === 'Minus' || event.code === 'NumpadSubtract') && selectedModules.length > 0) {
+      event.preventDefault();
+      resizeSelectedModules(0.9);
     }
   };
 
@@ -504,7 +514,7 @@ export function RoofLayoutEditor({
           </div>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Dica: Ctrl/Shift + clique seleciona vários. Ctrl+C copia, Ctrl+V cola, Ctrl+D duplica, Delete exclui. Botão direito troca ou cria string.
+          Dica: Ctrl/Shift + clique seleciona vários. Ctrl+C copia, Ctrl+V cola, Ctrl+D duplica, Ctrl+ / Ctrl- redimensiona, Delete exclui. Botão direito troca ou cria string.
         </p>
       </div>
 

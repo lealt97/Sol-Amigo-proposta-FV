@@ -28,6 +28,10 @@ export const proposalSchema = z.object({
   oversizing: z.union([z.string(), z.number()]).optional(),
   energy_tariff: z.union([z.string(), z.number()]).optional(),
 
+  // Kit solar escolhido
+  selected_solar_kit_id: z.string().optional().nullable().or(z.literal('')),
+  solar_kit_snapshot: z.any().optional().nullable(),
+
   // Local de instalação
   roof_type: z.string().optional().or(z.literal('')),
   roof_area_m2: z.union([z.string(), z.number()]).optional(),

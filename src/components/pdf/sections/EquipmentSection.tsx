@@ -17,6 +17,24 @@ const styles = StyleSheet.create({
     lineHeight: 1.5,
     marginBottom: 18,
   },
+  kitBox: {
+    marginBottom: 18,
+    padding: 14,
+    backgroundColor: '#eff6ff',
+    borderLeft: '4px solid #3b82f6',
+    borderRadius: 8,
+  },
+  kitTitle: {
+    fontSize: 12,
+    color: '#1e3a8a',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  kitText: {
+    fontSize: 10,
+    color: '#334155',
+    lineHeight: 1.4,
+  },
   table: {
     width: '100%',
     borderStyle: 'solid',
@@ -73,6 +91,7 @@ const styles = StyleSheet.create({
 
 export const EquipmentSection = ({ proposal }: { proposal: Proposal }) => {
   const solar = proposal.solar;
+  const kit = proposal.solar_kit_snapshot || null;
 
   if (!solar) {
     return (
@@ -83,10 +102,22 @@ export const EquipmentSection = ({ proposal }: { proposal: Proposal }) => {
     );
   }
 
+  const moduleDescription = kit
+    ? `${kit.module_quantity || 0} módulos ${kit.module_brand || ''} ${kit.module_model || ''} de ${kit.module_power_w || 0} W, totalizando ${Number(kit.kit_power_kwp || 0).toFixed(2)} kWp.`
+    : `${solar.panel_count || 0} módulos de ${solar.panel_power_w || 0} W, totalizando ${solar.installed_power_kwp?.toFixed(2)} kWp instalados.`;
+
+  const inverterDescription = kit
+    ? `${kit.inverter_brand || 'Inversor'} ${kit.inverter_model || ''}${kit.inverter_power_kw ? ` de ${kit.inverter_power_kw} kW` : ''}.`
+    : `Potência mínima recomendada de ${solar.min_inverter_power_kw?.toFixed(2)} kW, respeitando a relação DC/AC definida no dimensionamento.`;
+
+  const structureDescription = kit?.structure_type
+    ? `Estrutura de fixação para ${kit.structure_type}, conforme composição do kit escolhido.`
+    : 'Estrutura compatível com o tipo de telhado/local de instalação, definida após conferência técnica do local.';
+
   const rows = [
-    ['Módulos fotovoltaicos', `${solar.panel_count || 0} módulos de ${solar.panel_power_w || 0} W, totalizando ${solar.installed_power_kwp?.toFixed(2)} kWp instalados.`],
-    ['Inversor', `Potência mínima recomendada de ${solar.min_inverter_power_kw?.toFixed(2)} kW, respeitando a relação DC/AC definida no dimensionamento.`],
-    ['Estrutura de fixação', 'Estrutura compatível com o tipo de telhado/local de instalação, definida após conferência técnica do local.'],
+    ['Módulos fotovoltaicos', moduleDescription],
+    ['Inversor', inverterDescription],
+    ['Estrutura de fixação', structureDescription],
     ['Proteções elétricas', 'Dispositivos de proteção, seccionamento, cabos, conectores e string box conforme necessidade do projeto executivo.'],
     ['Monitoramento', 'Sistema com possibilidade de acompanhamento da geração por aplicativo ou plataforma do fabricante do inversor.'],
   ];
@@ -98,6 +129,16 @@ export const EquipmentSection = ({ proposal }: { proposal: Proposal }) => {
         A composição final dos equipamentos será confirmada no projeto executivo, respeitando disponibilidade de fornecedores,
         compatibilidade técnica e normas aplicáveis.
       </Text>
+
+      {kit && (
+        <View style={styles.kitBox}>
+          <Text style={styles.kitTitle}>Kit solar selecionado: {kit.name}</Text>
+          <Text style={styles.kitText}>
+            {kit.supplier ? `Fornecedor: ${kit.supplier} · ` : ''}
+            Potência do kit: {Number(kit.kit_power_kwp || 0).toFixed(2)} kWp · Custo base: R$ {Number(kit.cost_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.table}>
         {rows.map(([label, value]) => (

@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase/client';
 import { proposalEventService } from './proposalEventService';
 
+const PUBLIC_ACTION_STATUSES = ['pending', 'sent', 'draft', 'viewed'];
+
 export const publicProposalService = {
   async getProposalByToken(token: string) {
     const { data, error } = await supabase
@@ -8,7 +10,7 @@ export const publicProposalService = {
       .select(`
         id, code, title, status, final_price, pdf_url, public_token,
         accepted_at, rejected_at, rejection_reason, public_viewed_at,
-        created_at,
+        created_at, selected_solar_kit_id, solar_kit_snapshot, kit_cost,
         client_id,
         user_id,
         client:clients(name, city, state, document),
@@ -38,15 +40,20 @@ export const publicProposalService = {
       await proposalEventService.logEvent(data.id, 'public_viewed', 'Cliente visualizou a proposta pelo link público');
     }
     
-    let company = { name: 'Empresa', logo_url: '' };
+    let company = { name: 'Empresa', logo_url: '', email: '', website: '' };
     if (data?.user_id) {
        const { data: profile } = await supabase
          .from('profiles')
-         .select('company_name, logo_url')
+         .select('company_name, logo_url, company_email, website')
          .eq('id', data.user_id)
          .single();
        if (profile) {
-         company = { name: profile.company_name, logo_url: profile.logo_url || '' };
+         company = {
+           name: profile.company_name,
+           logo_url: profile.logo_url || '',
+           email: profile.company_email || '',
+           website: profile.website || '',
+         };
        }
     }
 
@@ -71,7 +78,7 @@ export const publicProposalService = {
       .from('proposals')
       .update(updatePayload)
       .eq('public_token', token)
-      .eq('status', 'pending');
+      .in('status', PUBLIC_ACTION_STATUSES);
 
     if (error) {
        console.error('Error updating via table, trying RPC:', error);

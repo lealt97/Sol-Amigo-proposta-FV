@@ -65,6 +65,7 @@ export interface Proposal {
     seller_name: string | null;
     seller_phone: string | null;
     seller_email: string | null;
+    seller_signature_url: string | null;
     website: string | null;
     company_email: string | null;
     default_validity_days: number | null;

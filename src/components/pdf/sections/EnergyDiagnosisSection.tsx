@@ -14,7 +14,12 @@ const DEFAULT_PERSPECTIVE: RoofLayoutPerspective = {
   bottomLeftX: 0,
   bottomLeftY: 0,
 };
+
 const PERSPECTIVE_LIMIT = 45;
+const MODULE_VIEWBOX_WIDTH = 16;
+const MODULE_VIEWBOX_HEIGHT = 31;
+
+type PdfPoint = { x: number; y: number };
 
 const styles = StyleSheet.create({
   sectionTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#18181b', borderBottomWidth: 2, borderBottomStyle: 'solid', borderBottomColor: '#3b82f6', paddingBottom: 5 },
@@ -28,6 +33,8 @@ const styles = StyleSheet.create({
   roofInfoCard: { width: '48%', backgroundColor: '#f8fafc', borderWidth: 1, borderStyle: 'solid', borderColor: '#e4e4e7', borderRadius: 8, padding: 9, marginBottom: 8 },
   roofInfoLabel: { fontSize: 8, color: '#71717a', textTransform: 'uppercase', marginBottom: 3 },
   roofInfoValue: { fontSize: 11, fontWeight: 'bold', color: '#18181b' },
+  roofStatusBox: { borderRadius: 8, borderWidth: 1, borderStyle: 'solid', padding: 9, marginBottom: 10 },
+  roofStatusText: { fontSize: 9, lineHeight: 1.35 },
   roofPlanningBox: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   roofImageBox: { width: '58%', height: 174, backgroundColor: '#f8fafc', borderWidth: 1, borderStyle: 'dashed', borderColor: '#94a3b8', borderRadius: 8, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 0, position: 'relative' },
   roofImageLayer: { width: '100%', height: '100%', position: 'relative' },
@@ -67,6 +74,7 @@ const formatArea = (val: number | null | undefined) => {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+const round = (value: number) => Number(value.toFixed(2));
 
 const sourceLabel: Record<string, string> = {
   average: 'Consumo médio informado',
@@ -116,7 +124,7 @@ function getNormalizedModule(module: RoofLayoutModule): RoofLayoutModule {
   };
 }
 
-function getModulePerspectivePoints(module: RoofLayoutModule) {
+function getModulePerspectivePoints(module: RoofLayoutModule): PdfPoint[] {
   const perspective = normalizePerspective(module.perspective);
   const toX = (value: number) => (value / 100) * module.width;
   const toY = (value: number) => (value / 100) * module.height;
@@ -129,20 +137,73 @@ function getModulePerspectivePoints(module: RoofLayoutModule) {
   ];
 }
 
-function pathFromPoints(points: Array<{ x: number; y: number }>) {
-  return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y} L ${points[2].x} ${points[2].y} L ${points[3].x} ${points[3].y} Z`;
+function formatPoint(point: PdfPoint) {
+  return `${point.x} ${point.y}`;
 }
 
-function getInsetPoints(points: Array<{ x: number; y: number }>, inset = 0.16) {
-  const center = points.reduce(
-    (acc, point) => ({ x: acc.x + point.x / points.length, y: acc.y + point.y / points.length }),
-    { x: 0, y: 0 }
-  );
+function mapOriginalModulePoint(points: PdfPoint[], x: number, y: number): PdfPoint {
+  const u = x / MODULE_VIEWBOX_WIDTH;
+  const v = y / MODULE_VIEWBOX_HEIGHT;
+  const topLeft = points[0];
+  const topRight = points[1];
+  const bottomRight = points[2];
+  const bottomLeft = points[3];
 
-  return points.map((point) => ({
-    x: point.x + (center.x - point.x) * inset,
-    y: point.y + (center.y - point.y) * inset,
-  }));
+  const top = {
+    x: topLeft.x + (topRight.x - topLeft.x) * u,
+    y: topLeft.y + (topRight.y - topLeft.y) * u,
+  };
+  const bottom = {
+    x: bottomLeft.x + (bottomRight.x - bottomLeft.x) * u,
+    y: bottomLeft.y + (bottomRight.y - bottomLeft.y) * u,
+  };
+
+  return {
+    x: round(top.x + (bottom.x - top.x) * v),
+    y: round(top.y + (bottom.y - top.y) * v),
+  };
+}
+
+function buildOriginalSvgDeformedPaths(points: PdfPoint[]) {
+  const map = (x: number, y: number) => mapOriginalModulePoint(points, x, y);
+  const p = (x: number, y: number) => formatPoint(map(x, y));
+
+  const black = [
+    `M ${p(7.93432, 14.0423)}`,
+    `L ${p(0.770895, 1.79815)}`,
+    `L ${p(0.770895, 30.2416)}`,
+    `L ${p(15.2291, 30.2416)}`,
+    `L ${p(15.2291, 1.77802)}`,
+    `L ${p(7.93432, 14.0423)}`,
+    'Z',
+    `M ${p(16, 31)}`,
+    `L ${p(0, 31)}`,
+    `L ${p(0, 0)}`,
+    `L ${p(16, 0)}`,
+    `L ${p(16, 31)}`,
+    'Z',
+  ].join(' ');
+
+  const accent = [
+    `M ${p(0.770895, 1.79815)}`,
+    `L ${p(0.770895, 30.2416)}`,
+    `L ${p(15.2291, 30.2416)}`,
+    `L ${p(15.2291, 1.77802)}`,
+    `L ${p(7.93432, 14.0423)}`,
+    `L ${p(0.770895, 1.79815)}`,
+    'Z',
+  ].join(' ');
+
+  return {
+    black,
+    accent,
+    label: map(7.93432, 26.8),
+    center: map(7.93432, 14.0423),
+  };
+}
+
+function pathFromPoints(points: PdfPoint[]) {
+  return `M ${formatPoint(points[0])} L ${formatPoint(points[1])} L ${formatPoint(points[2])} L ${formatPoint(points[3])} Z`;
 }
 
 function RoofPlanSvg({ layout, showLabels = false, overlay = false }: { layout: RoofLayoutData; showLabels?: boolean; overlay?: boolean }) {
@@ -167,19 +228,15 @@ function RoofPlanSvg({ layout, showLabels = false, overlay = false }: { layout: 
       {modules.map((module, index) => {
         const color = getStringColor(layout, module.stringId, '#B8B608');
         const moduleTransform = `translate(${module.x} ${module.y}) rotate(${module.rotation} ${module.width / 2} ${module.height / 2}) skewX(${module.skewX}) skewY(${module.skewY})`;
-        const outerPoints = getModulePerspectivePoints(module);
-        const innerPoints = getInsetPoints(outerPoints);
-        const center = outerPoints.reduce(
-          (acc, point) => ({ x: acc.x + point.x / outerPoints.length, y: acc.y + point.y / outerPoints.length }),
-          { x: 0, y: 0 }
-        );
+        const perspectivePoints = getModulePerspectivePoints(module);
+        const paths = buildOriginalSvgDeformedPaths(perspectivePoints);
 
         return (
           <G key={module.id} transform={moduleTransform}>
-            <Path d={pathFromPoints(outerPoints)} fill="#000000" />
-            <Path d={pathFromPoints(innerPoints)} fill={color} />
+            <Path d={paths.black} fill="#000000" />
+            <Path d={paths.accent} fill={color} />
             {showLabels && (
-              <SvgText x={center.x} y={center.y + 1.2} fontSize={3} textAnchor="middle" fill="#000000">
+              <SvgText x={paths.label.x} y={paths.label.y} fontSize={3} textAnchor="middle" fill="#000000">
                 {index + 1}
               </SvgText>
             )}
@@ -203,6 +260,13 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
   const moduleHeightM = proposal.module_height_m || 2.28;
   const moduleArea = moduleWidthM * moduleHeightM;
   const occupiedArea = moduleArea * (layout.modules?.length || solar?.panel_count || 0);
+  const roofArea = proposal.roof_area_m2 || 0;
+  const hasAreaWarning = roofArea > 0 && occupiedArea > roofArea;
+  const roofAreaStatus = roofArea <= 0
+    ? 'Área útil ainda não informada. A validação final deve ser confirmada na visita técnica.'
+    : hasAreaWarning
+      ? 'A área ocupada estimada ultrapassa a área útil informada. Revise quantidade, dimensões ou área disponível.'
+      : 'Área útil compatível com a quantidade de módulos posicionada na planimetria.';
   const stringsWithModules = layout.strings.filter((string) => layout.modules.some((module) => module.stringId === string.id));
 
   return (
@@ -250,6 +314,10 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
         </View>
       </View>
 
+      <View style={[styles.roofStatusBox, { borderColor: hasAreaWarning ? '#f97316' : theme.border, backgroundColor: hasAreaWarning ? '#fff7ed' : '#f8fafc' }]}> 
+        <Text style={[styles.roofStatusText, { color: hasAreaWarning ? '#9a3412' : theme.neutral }]}>{roofAreaStatus}</Text>
+      </View>
+
       <View style={styles.roofPlanningBox}>
         <View style={[styles.roofImageBox, { borderColor: theme.primary }]}> 
           {roofImageUrl ? (
@@ -283,7 +351,7 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
               );
             })}
           </View>
-          <Text style={styles.planNote}>Representação preliminar das strings. A posição final depende da visita técnica, orientação, sombreamento e estrutura.</Text>
+          <Text style={styles.planNote}>Representação da planimetria criada no editor. A posição final depende da visita técnica, orientação, sombreamento e estrutura.</Text>
         </View>
       </View>
 

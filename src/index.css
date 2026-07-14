@@ -45,3 +45,37 @@ input[type="file"]::file-selector-button {
   --color-gray-200: #2C527A;
   --color-gray-300: #386A9E;
 }
+
+/* Menu de botão direito do editor de planimetria. O componente usa classes Tailwind
+   utilitárias, então esta regra garante contraste sem alterar a lógica do editor. */
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl {
+  background: #0E2337 !important;
+  border-color: #386A9E !important;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(100, 176, 243, 0.14) !important;
+  color: #F8FAFC !important;
+}
+
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl > div:first-child {
+  background: #142E46 !important;
+  border-color: #386A9E !important;
+}
+
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl p,
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl span,
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl button {
+  color: #F8FAFC !important;
+}
+
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl .text-slate-500,
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl .text-slate-400 {
+  color: #CBD5E1 !important;
+}
+
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl button:hover {
+  background: rgba(100, 176, 243, 0.16) !important;
+}
+
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl .border-t,
+div.fixed.z-50.w-60.overflow-hidden.rounded-xl.border.border-brand-border.bg-white.shadow-xl .border-b {
+  border-color: #386A9E !important;
+}

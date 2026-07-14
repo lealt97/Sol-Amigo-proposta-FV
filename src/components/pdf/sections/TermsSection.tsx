@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
+import { View, Text, StyleSheet, Image } from '@react-pdf/renderer';
 import { Proposal } from '../../../types/proposal';
 
 const styles = StyleSheet.create({
@@ -36,10 +36,54 @@ const styles = StyleSheet.create({
   },
   itemContainer: {
     position: 'relative',
-  }
+  },
+  signatureBox: {
+    marginTop: 26,
+    paddingTop: 18,
+    borderTopWidth: 1,
+    borderTopStyle: 'solid',
+    borderTopColor: '#e4e4e7',
+  },
+  signatureIntro: {
+    fontSize: 11,
+    color: '#52525b',
+    marginBottom: 8,
+  },
+  signatureImage: {
+    width: 155,
+    height: 54,
+    objectFit: 'contain',
+    marginBottom: 4,
+  },
+  signatureLine: {
+    width: 210,
+    height: 1,
+    backgroundColor: '#a1a1aa',
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  sellerName: {
+    fontSize: 12,
+    color: '#18181b',
+    fontWeight: 'bold',
+  },
+  sellerMeta: {
+    fontSize: 9,
+    color: '#52525b',
+    marginTop: 2,
+  },
 });
 
+const getSellerName = (proposal: Proposal) =>
+  proposal.profile?.seller_name || proposal.profile?.company_name || 'Responsável comercial';
+
 export const TermsSection = ({ proposal }: { proposal: Proposal }) => {
+  const sellerName = getSellerName(proposal);
+  const companyName = proposal.profile?.company_name || '';
+  const sellerPhone = proposal.profile?.seller_phone || '';
+  const sellerEmail = proposal.profile?.seller_email || proposal.profile?.company_email || '';
+  const signatureUrl = proposal.profile?.seller_signature_url || null;
+
   return (
     <View style={{ marginBottom: 40 }}>
       <Text style={styles.sectionTitle}>Escopo e Condições Gerais</Text>
@@ -84,6 +128,19 @@ export const TermsSection = ({ proposal }: { proposal: Proposal }) => {
       <View style={styles.itemContainer}>
         <View style={styles.bullet}></View>
         <Text style={styles.listItem}>Obrigações civis de estrutura do telhado, alvenaria ou adequação do padrão de entrada não estão inclusas (salvo se descrito em contrato).</Text>
+      </View>
+
+      <View style={styles.signatureBox}>
+        <Text style={styles.signatureIntro}>Atenciosamente,</Text>
+        {signatureUrl ? (
+          <Image src={signatureUrl} style={styles.signatureImage} />
+        ) : (
+          <View style={styles.signatureLine} />
+        )}
+        <Text style={styles.sellerName}>{sellerName}</Text>
+        {companyName ? <Text style={styles.sellerMeta}>{companyName}</Text> : null}
+        {sellerPhone ? <Text style={styles.sellerMeta}>WhatsApp: {sellerPhone}</Text> : null}
+        {sellerEmail ? <Text style={styles.sellerMeta}>{sellerEmail}</Text> : null}
       </View>
     </View>
   );

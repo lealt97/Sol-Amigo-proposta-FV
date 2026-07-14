@@ -1,12 +1,12 @@
 import { KeyboardEvent, MouseEvent, PointerEvent, useMemo, useRef, useState } from 'react';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
-import { RoofModuleSvg } from './RoofModuleSvg';
 import {
   DEFAULT_ROOF_LAYOUT_STRINGS,
   EMPTY_ROOF_LAYOUT,
   RoofLayoutData,
   RoofLayoutModule,
+  RoofLayoutPerspective,
   RoofLayoutString,
 } from '../../types/roofLayout';
 
@@ -33,9 +33,29 @@ type ContextMenuState = {
   moduleIds: string[];
 };
 
+type PerspectivePoint = { x: number; y: number };
+
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const round = (value: number) => Number(value.toFixed(2));
 const STRING_COLORS = ['#9333EA', '#EA580C', '#0891B2', '#4D7C0F', '#2563EB', '#DC2626', '#16A34A'];
+const DEFAULT_PERSPECTIVE: RoofLayoutPerspective = {
+  topLeftX: 0,
+  topLeftY: 0,
+  topRightX: 0,
+  topRightY: 0,
+  bottomRightX: 0,
+  bottomRightY: 0,
+  bottomLeftX: 0,
+  bottomLeftY: 0,
+};
+const PERSPECTIVE_LIMIT = 45;
+
+function normalizePerspective(value?: Partial<RoofLayoutPerspective> | null): RoofLayoutPerspective {
+  return {
+    ...DEFAULT_PERSPECTIVE,
+    ...value,
+  };
+}
 
 function normalizeLayout(value?: RoofLayoutData | null): RoofLayoutData {
   const strings = value?.strings?.length ? value.strings : DEFAULT_ROOF_LAYOUT_STRINGS;
@@ -53,6 +73,7 @@ function normalizeLayout(value?: RoofLayoutData | null): RoofLayoutData {
       skewX: module.skewX || 0,
       skewY: module.skewY || 0,
       stringId: module.stringId || strings[0]?.id || 'string-1',
+      perspective: normalizePerspective(module.perspective),
     })),
   };
 }
@@ -64,6 +85,62 @@ function countModulesByString(modules: RoofLayoutModule[], stringId: string) {
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   return !!target.closest('input, textarea, select, [contenteditable="true"]');
+}
+
+function getPerspectivePoints(perspective?: RoofLayoutPerspective): PerspectivePoint[] {
+  const value = normalizePerspective(perspective);
+
+  return [
+    { x: clamp(value.topLeftX, -PERSPECTIVE_LIMIT, PERSPECTIVE_LIMIT), y: clamp(value.topLeftY, -PERSPECTIVE_LIMIT, PERSPECTIVE_LIMIT) },
+    { x: clamp(100 + value.topRightX, 100 - PERSPECTIVE_LIMIT, 100 + PERSPECTIVE_LIMIT), y: clamp(value.topRightY, -PERSPECTIVE_LIMIT, PERSPECTIVE_LIMIT) },
+    { x: clamp(100 + value.bottomRightX, 100 - PERSPECTIVE_LIMIT, 100 + PERSPECTIVE_LIMIT), y: clamp(100 + value.bottomRightY, 100 - PERSPECTIVE_LIMIT, 100 + PERSPECTIVE_LIMIT) },
+    { x: clamp(value.bottomLeftX, -PERSPECTIVE_LIMIT, PERSPECTIVE_LIMIT), y: clamp(100 + value.bottomLeftY, 100 - PERSPECTIVE_LIMIT, 100 + PERSPECTIVE_LIMIT) },
+  ];
+}
+
+function pointsToString(points: PerspectivePoint[]) {
+  return points.map((point) => `${point.x},${point.y}`).join(' ');
+}
+
+function getInsetPoints(points: PerspectivePoint[], inset = 0.16) {
+  const center = points.reduce(
+    (acc, point) => ({ x: acc.x + point.x / points.length, y: acc.y + point.y / points.length }),
+    { x: 0, y: 0 }
+  );
+
+  return points.map((point) => ({
+    x: round(point.x + (center.x - point.x) * inset),
+    y: round(point.y + (center.y - point.y) * inset),
+  }));
+}
+
+function PerspectiveModuleSvg({ color, label, perspective }: { color: string; label: string; perspective?: RoofLayoutPerspective }) {
+  const outerPoints = getPerspectivePoints(perspective);
+  const innerPoints = getInsetPoints(outerPoints);
+  const center = outerPoints.reduce(
+    (acc, point) => ({ x: acc.x + point.x / outerPoints.length, y: acc.y + point.y / outerPoints.length }),
+    { x: 0, y: 0 }
+  );
+
+  return (
+    <svg className="h-full w-full drop-shadow-sm" viewBox="-45 -45 190 190" preserveAspectRatio="none" aria-hidden="true">
+      <polygon points={pointsToString(outerPoints)} fill="#000000" />
+      <polygon points={pointsToString(innerPoints)} fill={color} />
+      <polyline points={`${innerPoints[0].x},${innerPoints[0].y} ${center.x},${center.y} ${innerPoints[1].x},${innerPoints[1].y}`} fill="none" stroke="#000000" strokeWidth="1.8" opacity="0.28" />
+      <polyline points={`${innerPoints[3].x},${innerPoints[3].y} ${center.x},${center.y} ${innerPoints[2].x},${innerPoints[2].y}`} fill="none" stroke="#000000" strokeWidth="1.8" opacity="0.28" />
+      <text x={center.x} y={center.y + 9} textAnchor="middle" fontSize="16" fontFamily="Arial, sans-serif" fill="#000000">
+        {label}
+      </text>
+    </svg>
+  );
+}
+
+function SelectionBorderSvg({ perspective }: { perspective?: RoofLayoutPerspective }) {
+  return (
+    <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="-45 -45 190 190" preserveAspectRatio="none" aria-hidden="true">
+      <polygon points={pointsToString(getPerspectivePoints(perspective))} fill="none" stroke="currentColor" strokeWidth="3" vectorEffect="non-scaling-stroke" className="text-brand-blue" />
+    </svg>
+  );
 }
 
 export function RoofLayoutEditor({
@@ -94,6 +171,7 @@ export function RoofLayoutEditor({
 
   const selectedModule = selectedModules[0] || null;
   const selectedCount = selectedModules.length;
+  const selectedPerspective = normalizePerspective(selectedModule?.perspective);
   const moduleArea = moduleWidthM * moduleHeightM;
   const occupiedArea = layout.modules.length * moduleArea;
 
@@ -121,6 +199,7 @@ export function RoofLayoutEditor({
     rotation: 0,
     skewX: 0,
     skewY: 0,
+    perspective: DEFAULT_PERSPECTIVE,
     stringId: selectedStringId,
   });
 
@@ -162,6 +241,7 @@ export function RoofLayoutEditor({
     const timestamp = Date.now();
     const duplicates = selectedModules.map((module, index) => ({
       ...module,
+      perspective: normalizePerspective(module.perspective),
       id: `mod-${timestamp}-${index}`,
       x: clamp(module.x + 2, 0, 100 - module.width),
       y: clamp(module.y + 2, 0, 100 - module.height),
@@ -174,7 +254,7 @@ export function RoofLayoutEditor({
 
   const copySelectedModules = () => {
     if (selectedModules.length === 0) return;
-    setModuleClipboard(selectedModules.map((module) => ({ ...module })));
+    setModuleClipboard(selectedModules.map((module) => ({ ...module, perspective: normalizePerspective(module.perspective) })));
   };
 
   const pasteModules = () => {
@@ -183,6 +263,7 @@ export function RoofLayoutEditor({
     const timestamp = Date.now();
     const pastedModules = moduleClipboard.map((module, index) => ({
       ...module,
+      perspective: normalizePerspective(module.perspective),
       id: `mod-${timestamp}-${index}`,
       x: clamp(module.x + 3, 0, 100 - module.width),
       y: clamp(module.y + 3, 0, 100 - module.height),
@@ -246,6 +327,23 @@ export function RoofLayoutEditor({
           ? {
               ...module,
               ...patch,
+            }
+          : module
+      )
+    );
+  };
+
+  const updateSelectedPerspective = (patch: Partial<RoofLayoutPerspective>) => {
+    if (validSelectedModuleIds.length === 0) return;
+    updateModules(
+      layout.modules.map((module) =>
+        validSelectedModuleIds.includes(module.id)
+          ? {
+              ...module,
+              perspective: {
+                ...normalizePerspective(module.perspective),
+                ...patch,
+              },
             }
           : module
       )
@@ -316,7 +414,7 @@ export function RoofLayoutEditor({
   };
 
   const resetSelectedPerspective = () => {
-    updateSelectedModules({ rotation: 0, skewX: 0, skewY: 0 });
+    updateSelectedModules({ rotation: 0, skewX: 0, skewY: 0, perspective: DEFAULT_PERSPECTIVE });
   };
 
   const toggleModuleSelection = (moduleId: string) => {
@@ -333,6 +431,7 @@ export function RoofLayoutEditor({
       sourceId: sourceModule.id,
       module: {
         ...sourceModule,
+        perspective: normalizePerspective(sourceModule.perspective),
         id: `mod-${timestamp}-${index}`,
       },
     }));
@@ -559,7 +658,7 @@ export function RoofLayoutEditor({
           </div>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Dica: Ctrl/Shift + clique seleciona vários. Setas movem, Shift+setas move rápido. Ctrl+C copia, Ctrl+V cola, Ctrl+D duplica, Ctrl+ / Ctrl- redimensiona, Delete exclui. Ctrl+Alt + clique e arraste copia o conjunto selecionado.
+          Dica: Ctrl/Shift + clique seleciona vários. Setas movem, Shift+setas move rápido. Ctrl+C copia, Ctrl+V cola, Ctrl+D duplica, Ctrl+ / Ctrl- redimensiona. Use os 4 pontos para encaixar na perspectiva real do telhado.
         </p>
       </div>
 
@@ -631,10 +730,8 @@ export function RoofLayoutEditor({
                 }}
                 title={`Módulo ${index + 1}`}
               >
-                <RoofModuleSvg color={color} label={`${index + 1}`} className="h-full w-full drop-shadow-sm" />
-                {isSelected && (
-                  <span className="pointer-events-none absolute inset-0 rounded-sm border-2 border-brand-blue" />
-                )}
+                <PerspectiveModuleSvg color={color} label={`${index + 1}`} perspective={module.perspective} />
+                {isSelected && <SelectionBorderSvg perspective={module.perspective} />}
               </button>
             );
           })}
@@ -704,7 +801,7 @@ export function RoofLayoutEditor({
                     {selectedCount > 1 ? 'Módulos selecionados' : 'Módulo selecionado'}
                   </h4>
                   {selectedCount > 1 && (
-                    <p className="text-xs text-slate-500">Largura, altura, rotação, skew e string serão aplicados em todos.</p>
+                    <p className="text-xs text-slate-500">Largura, altura, rotação, skew, perspectiva e string serão aplicados em todos.</p>
                   )}
                 </div>
                 <Button type="button" variant="ghost" size="sm" onClick={resetSelectedPerspective}>
@@ -802,6 +899,47 @@ export function RoofLayoutEditor({
                 </label>
               </div>
 
+              <div className="space-y-2 rounded-lg border border-brand-border bg-slate-50 p-3">
+                <p className="text-xs font-semibold text-brand-dark">Perspectiva 4 pontos</p>
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  Ajuste cada canto do módulo para encaixar em telhados vistos em perspectiva. Valores negativos puxam o canto para esquerda/cima; positivos puxam para direita/baixo.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[11px] text-slate-500">
+                    Sup. Esq. X
+                    <input type="number" min="-45" max="45" step="1" value={selectedPerspective.topLeftX} onChange={(event) => updateSelectedPerspective({ topLeftX: clamp(Number(event.target.value) || 0, -45, 45) })} className="mt-1 w-full rounded border border-brand-border bg-white px-2 py-1 text-xs" />
+                  </label>
+                  <label className="text-[11px] text-slate-500">
+                    Sup. Esq. Y
+                    <input type="number" min="-45" max="45" step="1" value={selectedPerspective.topLeftY} onChange={(event) => updateSelectedPerspective({ topLeftY: clamp(Number(event.target.value) || 0, -45, 45) })} className="mt-1 w-full rounded border border-brand-border bg-white px-2 py-1 text-xs" />
+                  </label>
+                  <label className="text-[11px] text-slate-500">
+                    Sup. Dir. X
+                    <input type="number" min="-45" max="45" step="1" value={selectedPerspective.topRightX} onChange={(event) => updateSelectedPerspective({ topRightX: clamp(Number(event.target.value) || 0, -45, 45) })} className="mt-1 w-full rounded border border-brand-border bg-white px-2 py-1 text-xs" />
+                  </label>
+                  <label className="text-[11px] text-slate-500">
+                    Sup. Dir. Y
+                    <input type="number" min="-45" max="45" step="1" value={selectedPerspective.topRightY} onChange={(event) => updateSelectedPerspective({ topRightY: clamp(Number(event.target.value) || 0, -45, 45) })} className="mt-1 w-full rounded border border-brand-border bg-white px-2 py-1 text-xs" />
+                  </label>
+                  <label className="text-[11px] text-slate-500">
+                    Inf. Dir. X
+                    <input type="number" min="-45" max="45" step="1" value={selectedPerspective.bottomRightX} onChange={(event) => updateSelectedPerspective({ bottomRightX: clamp(Number(event.target.value) || 0, -45, 45) })} className="mt-1 w-full rounded border border-brand-border bg-white px-2 py-1 text-xs" />
+                  </label>
+                  <label className="text-[11px] text-slate-500">
+                    Inf. Dir. Y
+                    <input type="number" min="-45" max="45" step="1" value={selectedPerspective.bottomRightY} onChange={(event) => updateSelectedPerspective({ bottomRightY: clamp(Number(event.target.value) || 0, -45, 45) })} className="mt-1 w-full rounded border border-brand-border bg-white px-2 py-1 text-xs" />
+                  </label>
+                  <label className="text-[11px] text-slate-500">
+                    Inf. Esq. X
+                    <input type="number" min="-45" max="45" step="1" value={selectedPerspective.bottomLeftX} onChange={(event) => updateSelectedPerspective({ bottomLeftX: clamp(Number(event.target.value) || 0, -45, 45) })} className="mt-1 w-full rounded border border-brand-border bg-white px-2 py-1 text-xs" />
+                  </label>
+                  <label className="text-[11px] text-slate-500">
+                    Inf. Esq. Y
+                    <input type="number" min="-45" max="45" step="1" value={selectedPerspective.bottomLeftY} onChange={(event) => updateSelectedPerspective({ bottomLeftY: clamp(Number(event.target.value) || 0, -45, 45) })} className="mt-1 w-full rounded border border-brand-border bg-white px-2 py-1 text-xs" />
+                  </label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => resizeSelectedModules(0.9)}>
                   Diminuir
@@ -818,7 +956,7 @@ export function RoofLayoutEditor({
               </div>
 
               <p className="text-[11px] leading-relaxed text-slate-500">
-                Use rotação, Skew X e Skew Y para encaixar o SVG na perspectiva do telhado. O preto do módulo permanece fixo; somente a parte colorida acompanha a cor da string.
+                Use largura/altura para proporção, rotação para direção e Perspectiva 4 pontos para deformar o módulo até acompanhar o plano real do telhado.
               </p>
             </div>
           ) : (

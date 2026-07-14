@@ -38,33 +38,41 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   signatureBox: {
-    marginTop: 26,
+    marginTop: 30,
     paddingTop: 18,
     borderTopWidth: 1,
     borderTopStyle: 'solid',
     borderTopColor: '#e4e4e7',
   },
-  signatureIntro: {
-    fontSize: 11,
-    color: '#52525b',
-    marginBottom: 8,
+  signatureHeader: {
+    fontSize: 9,
+    color: '#71717a',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
   },
   signatureImage: {
-    width: 155,
-    height: 54,
+    width: 175,
+    height: 62,
     objectFit: 'contain',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   signatureLine: {
-    width: 210,
+    width: 220,
     height: 1,
     backgroundColor: '#a1a1aa',
-    marginTop: 6,
-    marginBottom: 6,
+    marginTop: 44,
+    marginBottom: 8,
   },
   sellerName: {
     fontSize: 12,
     color: '#18181b',
+    fontWeight: 'bold',
+  },
+  sellerRole: {
+    fontSize: 9,
+    color: '#3b82f6',
+    marginTop: 2,
     fontWeight: 'bold',
   },
   sellerMeta: {
@@ -130,14 +138,15 @@ export const TermsSection = ({ proposal }: { proposal: Proposal }) => {
         <Text style={styles.listItem}>Obrigações civis de estrutura do telhado, alvenaria ou adequação do padrão de entrada não estão inclusas (salvo se descrito em contrato).</Text>
       </View>
 
-      <View style={styles.signatureBox}>
-        <Text style={styles.signatureIntro}>Atenciosamente,</Text>
+      <View style={styles.signatureBox} wrap={false}>
+        <Text style={styles.signatureHeader}>Representante comercial</Text>
         {signatureUrl ? (
           <Image src={signatureUrl} style={styles.signatureImage} />
         ) : (
           <View style={styles.signatureLine} />
         )}
         <Text style={styles.sellerName}>{sellerName}</Text>
+        <Text style={styles.sellerRole}>Representante comercial</Text>
         {companyName ? <Text style={styles.sellerMeta}>{companyName}</Text> : null}
         {sellerPhone ? <Text style={styles.sellerMeta}>WhatsApp: {sellerPhone}</Text> : null}
         {sellerEmail ? <Text style={styles.sellerMeta}>{sellerEmail}</Text> : null}

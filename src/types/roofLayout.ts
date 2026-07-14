@@ -4,6 +4,17 @@ export interface RoofLayoutString {
   color: string;
 }
 
+export interface RoofLayoutPerspective {
+  topLeftX: number;
+  topLeftY: number;
+  topRightX: number;
+  topRightY: number;
+  bottomRightX: number;
+  bottomRightY: number;
+  bottomLeftX: number;
+  bottomLeftY: number;
+}
+
 export interface RoofLayoutModule {
   id: string;
   x: number;
@@ -14,6 +25,7 @@ export interface RoofLayoutModule {
   skewX: number;
   skewY: number;
   stringId: string;
+  perspective?: RoofLayoutPerspective;
 }
 
 export interface RoofLayoutData {

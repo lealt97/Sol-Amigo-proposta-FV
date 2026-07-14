@@ -1,6 +1,7 @@
 import { KeyboardEvent, MouseEvent, PointerEvent, useMemo, useRef, useState } from 'react';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
+import { RoofModuleSvg } from './RoofModuleSvg';
 import {
   DEFAULT_ROOF_LAYOUT_STRINGS,
   EMPTY_ROOF_LAYOUT,
@@ -139,26 +140,6 @@ function getModulePerspectivePoints(module: RoofLayoutModule): PerspectivePoint[
 
 function pathFromPoints(points: PerspectivePoint[]) {
   return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y} L ${points[2].x} ${points[2].y} L ${points[3].x} ${points[3].y} Z`;
-}
-
-function getInsetPoints(points: PerspectivePoint[], inset = 0.16): PerspectivePoint[] {
-  const center = points.reduce(
-    (acc, point) => ({ x: acc.x + point.x / points.length, y: acc.y + point.y / points.length }),
-    { x: 0, y: 0 }
-  );
-
-  return points.map((point) => ({
-    ...point,
-    x: point.x + (center.x - point.x) * inset,
-    y: point.y + (center.y - point.y) * inset,
-  }));
-}
-
-function getPointCenter(points: PerspectivePoint[]) {
-  return points.reduce(
-    (acc, point) => ({ x: acc.x + point.x / points.length, y: acc.y + point.y / points.length }),
-    { x: 0, y: 0 }
-  );
 }
 
 export function RoofLayoutEditor({
@@ -775,8 +756,6 @@ export function RoofLayoutEditor({
             const color = stringColor(module.stringId);
             const isSelected = validSelectedModuleIds.includes(module.id);
             const perspectivePoints = getModulePerspectivePoints(module);
-            const innerPoints = getInsetPoints(perspectivePoints);
-            const center = getPointCenter(perspectivePoints);
 
             return (
               <button
@@ -797,14 +776,13 @@ export function RoofLayoutEditor({
                 }}
                 title={`Módulo ${index + 1}`}
               >
-                <svg className="h-full w-full overflow-visible drop-shadow-sm" viewBox="0 0 100 100" preserveAspectRatio="none">
-                  <path d={pathFromPoints(perspectivePoints)} fill="#000000" />
-                  <path d={pathFromPoints(innerPoints)} fill={color} />
-                  <text x={center.x} y={center.y + 7} textAnchor="middle" fontSize="16" fontFamily="Arial, sans-serif" fill="#000000">
-                    {index + 1}
-                  </text>
-                  {isSelected && <path d={pathFromPoints(perspectivePoints)} fill="none" stroke="#0076DD" strokeWidth="3" />}
-                </svg>
+                <RoofModuleSvg color={color} label={`${index + 1}`} className="h-full w-full drop-shadow-sm" />
+
+                {isSelected && (
+                  <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                    <path d={pathFromPoints(perspectivePoints)} fill="none" stroke="#0076DD" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+                  </svg>
+                )}
 
                 {isSelected && perspectivePoints.map((point) => (
                   <span
@@ -897,7 +875,7 @@ export function RoofLayoutEditor({
                   {selectedCount > 1 && (
                     <p className="text-xs text-slate-500">Largura, altura, rotação, skew e string serão aplicados em todos.</p>
                   )}
-                  <p className="mt-1 text-xs text-slate-500">Arraste os 4 pontos azuis no módulo para ajustar a perspectiva real.</p>
+                  <p className="mt-1 text-xs text-slate-500">Arraste os 4 pontos azuis no módulo para ajustar a área de encaixe no telhado sem alterar o SVG original.</p>
                 </div>
                 <Button type="button" variant="ghost" size="sm" onClick={resetSelectedPerspective}>
                   Resetar
@@ -1010,7 +988,7 @@ export function RoofLayoutEditor({
               </div>
 
               <p className="text-[11px] leading-relaxed text-slate-500">
-                Para perspectiva real, arraste os pontos azuis dos cantos. O reset limpa rotação, skew e perspectiva 4 pontos.
+                O SVG original do módulo foi preservado. Os pontos azuis ajustam apenas a borda/área de encaixe visual; o reset limpa rotação, skew e perspectiva 4 pontos.
               </p>
             </div>
           ) : (

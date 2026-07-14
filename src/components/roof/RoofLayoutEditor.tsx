@@ -24,7 +24,7 @@ type DragState = {
   offsetY: number;
   selectedIds: string[];
   initialModules: Array<Pick<RoofLayoutModule, 'id' | 'x' | 'y' | 'width' | 'height'>>;
-  createdModule?: RoofLayoutModule;
+  createdModules?: RoofLayoutModule[];
 };
 
 type ContextMenuState = {
@@ -312,6 +312,17 @@ export function RoofLayoutEditor({
     );
   };
 
+  const buildCopyDragModules = (sourceModules: RoofLayoutModule[]) => {
+    const timestamp = Date.now();
+    return sourceModules.map((sourceModule, index) => ({
+      sourceId: sourceModule.id,
+      module: {
+        ...sourceModule,
+        id: `mod-${timestamp}-${index}`,
+      },
+    }));
+  };
+
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>, module: RoofLayoutModule) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -326,22 +337,25 @@ export function RoofLayoutEditor({
     const moduleLeft = rect.left + (module.x / 100) * rect.width;
     const moduleTop = rect.top + (module.y / 100) * rect.height;
 
-    const activeModule: RoofLayoutModule = isCopyDrag
-      ? {
-          ...module,
-          id: `mod-${Date.now()}`,
-        }
-      : module;
-
-    const nextSelectedIds = isCopyDrag
-      ? [activeModule.id]
-      : validSelectedModuleIds.includes(module.id) && validSelectedModuleIds.length > 1
-        ? validSelectedModuleIds
-        : [module.id];
+    let dragModule = module;
+    let nextSelectedIds = validSelectedModuleIds.includes(module.id) && validSelectedModuleIds.length > 1
+      ? validSelectedModuleIds
+      : [module.id];
+    let dragModulesForInitialState = layout.modules.filter((item) => nextSelectedIds.includes(item.id));
+    let createdModules: RoofLayoutModule[] | undefined;
 
     if (isCopyDrag) {
-      updateModules([...layout.modules, activeModule]);
-      setSelectedModuleIds([activeModule.id]);
+      const sourceModules = validSelectedModuleIds.includes(module.id) && selectedModules.length > 1
+        ? selectedModules
+        : [module];
+      const copyPairs = buildCopyDragModules(sourceModules);
+      createdModules = copyPairs.map((copyPair) => copyPair.module);
+      dragModule = copyPairs.find((copyPair) => copyPair.sourceId === module.id)?.module || createdModules[0];
+      nextSelectedIds = createdModules.map((createdModule) => createdModule.id);
+      dragModulesForInitialState = createdModules;
+
+      updateModules([...layout.modules, ...createdModules]);
+      setSelectedModuleIds(nextSelectedIds);
     } else {
       setSelectedModuleIds(nextSelectedIds);
     }
@@ -349,17 +363,18 @@ export function RoofLayoutEditor({
     setContextMenu(null);
 
     dragRef.current = {
-      id: activeModule.id,
+      id: dragModule.id,
       offsetX: event.clientX - moduleLeft,
       offsetY: event.clientY - moduleTop,
       selectedIds: nextSelectedIds,
-      initialModules: [
-        ...layout.modules,
-        ...(isCopyDrag ? [activeModule] : []),
-      ]
-        .filter((item) => nextSelectedIds.includes(item.id))
-        .map((item) => ({ id: item.id, x: item.x, y: item.y, width: item.width, height: item.height })),
-      createdModule: isCopyDrag ? activeModule : undefined,
+      initialModules: dragModulesForInitialState.map((item) => ({
+        id: item.id,
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+      })),
+      createdModules,
     };
 
     event.preventDefault();
@@ -451,14 +466,15 @@ export function RoofLayoutEditor({
     const canvas = canvasRef.current;
     if (!drag || !canvas) return;
 
-    const baseModules = drag.createdModule && !layout.modules.some((item) => item.id === drag.createdModule?.id)
-      ? [...layout.modules, drag.createdModule]
+    const hasCreatedModules = !!drag.createdModules?.length;
+    const createdModulesAreMissing = hasCreatedModules && !layout.modules.some((item) => item.id === drag.createdModules?.[0]?.id);
+    const baseModules = createdModulesAreMissing
+      ? [...layout.modules, ...(drag.createdModules || [])]
       : layout.modules;
 
     const rect = canvas.getBoundingClientRect();
-    const module = baseModules.find((item) => item.id === drag.id);
     const draggedInitialModule = drag.initialModules.find((item) => item.id === drag.id);
-    if (!module || !draggedInitialModule) return;
+    if (!draggedInitialModule) return;
 
     const nextX = ((event.clientX - rect.left - drag.offsetX) / rect.width) * 100;
     const nextY = ((event.clientY - rect.top - drag.offsetY) / rect.height) * 100;
@@ -514,7 +530,7 @@ export function RoofLayoutEditor({
           </div>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Dica: Ctrl/Shift + clique seleciona vários. Ctrl+C copia, Ctrl+V cola, Ctrl+D duplica, Ctrl+ / Ctrl- redimensiona, Delete exclui. Botão direito troca ou cria string.
+          Dica: Ctrl/Shift + clique seleciona vários. Ctrl+C copia, Ctrl+V cola, Ctrl+D duplica, Ctrl+ / Ctrl- redimensiona, Delete exclui. Ctrl+Alt + clique e arraste copia o conjunto selecionado.
         </p>
       </div>
 
@@ -575,7 +591,7 @@ export function RoofLayoutEditor({
                 onClick={(event) => handleModuleClick(event, module.id)}
                 onContextMenu={(event) => handleModuleContextMenu(event, module.id)}
                 onKeyDown={handleModuleKeyDown}
-                className={`absolute cursor-move bg-transparent p-0 transition-shadow ${isSelected ? 'outline outline-2 outline-brand-blue shadow-lg' : ''}`}
+                className={`absolute relative cursor-move bg-transparent p-0 transition-shadow focus:outline-none ${isSelected ? 'shadow-lg' : ''}`}
                 style={{
                   left: `${module.x}%`,
                   top: `${module.y}%`,
@@ -587,6 +603,9 @@ export function RoofLayoutEditor({
                 title={`Módulo ${index + 1}`}
               >
                 <RoofModuleSvg color={color} label={`${index + 1}`} className="h-full w-full drop-shadow-sm" />
+                {isSelected && (
+                  <span className="pointer-events-none absolute inset-0 rounded-sm border-2 border-brand-blue" />
+                )}
               </button>
             );
           })}

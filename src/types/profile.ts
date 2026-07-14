@@ -16,6 +16,7 @@ export interface Profile {
   seller_name: string | null;
   seller_phone: string | null;
   seller_email: string | null;
+  seller_signature_url: string | null;
   default_margin_percentage: number | null;
   default_validity_days: number | null;
   created_at?: string;

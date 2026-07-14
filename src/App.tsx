@@ -24,7 +24,6 @@ import { ProposalDetails } from "./pages/propostas/ProposalDetails";
 import { DesignPdf } from "./pages/design-pdf/DesignPdf";
 import { PublicProposal } from "./pages/public/PublicProposal";
 import { Configuracoes } from "./pages/Configuracoes";
-import { AssinaturaVendedor } from "./pages/AssinaturaVendedor";
 
 function Home() {
   return <Navigate to="/dashboard" replace />;
@@ -61,7 +60,6 @@ export default function App() {
               <Route path="propostas/:id/editar" element={<ProposalWizard />} />
               <Route path="design-pdf" element={<DesignPdf />} />
               <Route path="configuracoes" element={<Configuracoes />} />
-              <Route path="configuracoes/assinatura" element={<AssinaturaVendedor />} />
             </Route>
           </Route>
           

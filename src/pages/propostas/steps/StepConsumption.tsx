@@ -70,6 +70,21 @@ export function StepConsumption() {
         </Select>
       </div>
 
+      {consumptionSource === 'average' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="monthly_consumption_kwh">Consumo Médio (kWh/mês)</Label>
+            <Input 
+              id="monthly_consumption_kwh" 
+              type="number" 
+              min="0"
+              placeholder="Ex: 500" 
+              {...register('monthly_consumption_kwh')} 
+            />
+          </div>
+        </div>
+      )}
+
       <div className="p-4 rounded-lg bg-brand-surface border border-brand-border space-y-3">
         <div>
           <h3 className="text-sm font-medium text-brand-dark">Conta de energia</h3>
@@ -105,21 +120,6 @@ export function StepConsumption() {
           Combinações aceitas: consumo + tarifa, consumo + valor da conta, ou valor da conta + tarifa.
         </p>
       </div>
-
-      {consumptionSource === 'average' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="monthly_consumption_kwh">Consumo Médio (kWh/mês)</Label>
-            <Input 
-              id="monthly_consumption_kwh" 
-              type="number" 
-              min="0"
-              placeholder="Ex: 500" 
-              {...register('monthly_consumption_kwh')} 
-            />
-          </div>
-        </div>
-      )}
 
       {consumptionSource === 'historical' && (
         <div className="space-y-4">

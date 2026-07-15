@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,9 +22,25 @@ import {
   Check,
   Trash2,
   PenLine,
+  Palette,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase/client';
 import { extractActiveLogo, extractAllLogos, serializeLogos } from '../utils/logoHelper';
+import {
+  applyPlatformTheme,
+  buildPlatformTheme,
+  DEFAULT_PLATFORM_THEME_SEED,
+  PLATFORM_THEME_PRESETS,
+  PlatformThemeSeed,
+  resetPlatformTheme,
+} from '../lib/theme/platformTheme';
+
+type SettingsTab = 'empresa' | 'logo' | 'vendedor' | 'customizacao' | 'preferencias' | 'seguranca' | 'encerramento';
+
+const inputClassName = "w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none";
+const colorInputClassName = "h-11 w-full cursor-pointer rounded-lg border border-brand-border bg-brand-surface p-1";
 
 export function Configuracoes() {
   const { user, signOut } = useAuth();
@@ -34,7 +50,8 @@ export function Configuracoes() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'empresa' | 'logo' | 'vendedor' | 'preferencias' | 'seguranca' | 'encerramento'>('empresa');
+  const [isSavingTheme, setIsSavingTheme] = useState(false);
+  const [activeTab, setActiveTab] = useState<SettingsTab>('empresa');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingSignature, setUploadingSignature] = useState(false);
   const [loadError, setLoadError] = useState<any>(null);
@@ -53,8 +70,9 @@ export function Configuracoes() {
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (tabParam === 'logo' || tabParam === 'empresa' || tabParam === 'vendedor' || tabParam === 'preferencias' || tabParam === 'seguranca' || tabParam === 'encerramento') {
-      setActiveTab(tabParam as any);
+    const validTabs: SettingsTab[] = ['logo', 'empresa', 'vendedor', 'customizacao', 'preferencias', 'seguranca', 'encerramento'];
+    if (validTabs.includes(tabParam as SettingsTab)) {
+      setActiveTab(tabParam as SettingsTab);
     }
   }, [tabParam]);
 
@@ -65,6 +83,7 @@ export function Configuracoes() {
       try {
         const data = await profileService.getProfile(user.id);
         setProfile(data);
+        applyPlatformTheme(data.platform_theme || null);
       } catch (err) {
         console.error('Error loading profile:', err);
         setLoadError(err);
@@ -76,6 +95,59 @@ export function Configuracoes() {
     loadProfile();
   }, [user]);
 
+  const activeTheme = useMemo(() => {
+    return profile?.platform_theme || buildPlatformTheme(DEFAULT_PLATFORM_THEME_SEED);
+  }, [profile?.platform_theme]);
+
+  const themeSeed = activeTheme.seed;
+  const themePalette = activeTheme.palette;
+
+  const setProfileAndPreview = (nextProfile: Profile) => {
+    setProfile(nextProfile);
+    applyPlatformTheme(nextProfile.platform_theme || null);
+  };
+
+  const updateThemeSeed = (field: keyof PlatformThemeSeed, value: string) => {
+    if (!profile) return;
+    const nextSeed = {
+      ...themeSeed,
+      [field]: field === 'mode' ? value as PlatformThemeSeed['mode'] : value,
+    };
+    const nextTheme = buildPlatformTheme(nextSeed);
+    setProfileAndPreview({ ...profile, platform_theme: nextTheme });
+  };
+
+  const applyPreset = (seed: PlatformThemeSeed) => {
+    if (!profile) return;
+    const nextTheme = buildPlatformTheme(seed);
+    setProfileAndPreview({ ...profile, platform_theme: nextTheme });
+    toast.success('Prévia de paleta aplicada. Salve para tornar permanente.');
+  };
+
+  const handleResetTheme = () => {
+    if (!profile) return;
+    const nextTheme = resetPlatformTheme();
+    setProfile({ ...profile, platform_theme: nextTheme });
+    toast('Paleta padrão restaurada em prévia. Salve para tornar permanente.');
+  };
+
+  const handleSaveTheme = async () => {
+    if (!user || !profile) return;
+
+    setIsSavingTheme(true);
+    try {
+      const theme = profile.platform_theme || buildPlatformTheme(DEFAULT_PLATFORM_THEME_SEED);
+      const data = await profileService.updateProfile(user.id, { platform_theme: theme });
+      setProfile(data);
+      applyPlatformTheme(data.platform_theme || null);
+      toast.success('Paleta da plataforma salva com sucesso!');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao salvar paleta da plataforma');
+    } finally {
+      setIsSavingTheme(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!user || !profile) return;
 
@@ -84,6 +156,7 @@ export function Configuracoes() {
       const { id, created_at, updated_at, ...updateData } = profile;
       const data = await profileService.updateProfile(user.id, updateData);
       setProfile(data);
+      applyPlatformTheme(data.platform_theme || null);
       toast.success('Configurações salvas com sucesso!');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao salvar configurações');
@@ -216,12 +289,7 @@ export function Configuracoes() {
       return;
     }
 
-    if (!newPassword) {
-      setPasswordErrorMessage('Por favor, insira a nova senha.');
-      return;
-    }
-
-    if (newPassword.length < 6) {
+    if (!newPassword || newPassword.length < 6) {
       setPasswordErrorMessage('A nova senha deve ter pelo menos 6 caracteres.');
       return;
     }
@@ -231,27 +299,13 @@ export function Configuracoes() {
       return;
     }
 
-    if (currentPassword === newPassword) {
-      setPasswordErrorMessage('A nova senha não pode ser igual à senha atual.');
-      return;
-    }
-
     setIsUpdatingPassword(true);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: currentPassword,
-      });
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
+      if (signInError) throw new Error('A senha atual digitada está incorreta.');
 
-      if (signInError) {
-        throw new Error('A senha atual digitada está incorreta.');
-      }
-
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) throw updateError;
 
       setPasswordSuccessMessage('Senha alterada com sucesso de forma instantânea!');
@@ -290,53 +344,15 @@ export function Configuracoes() {
     setIsDeletingAccount(true);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: deletePassword,
-      });
-
-      if (signInError) {
-        throw new Error('A senha digitada está incorreta.');
-      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: deletePassword });
+      if (signInError) throw new Error('A senha digitada está incorreta.');
 
       const { error: deleteError } = await supabase.rpc('delete_user_account');
-
-      if (deleteError) {
-        if (
-          deleteError.message?.toLowerCase().includes('does not exist') ||
-          deleteError.code === 'P0001' ||
-          deleteError.message?.toLowerCase().includes('function') ||
-          deleteError.message?.toLowerCase().includes('not found')
-        ) {
-          setDeleteErrorMessage(
-            'Para excluir a sua conta, é necessário registrar uma função de banco de dados no Supabase. Por favor, acesse seu painel do Supabase, abra o "SQL Editor" e execute o comando SQL abaixo:\n\n' +
-            'CREATE OR REPLACE FUNCTION public.delete_user_account()\n' +
-            'RETURNS void\n' +
-            'LANGUAGE plpgsql\n' +
-            'SECURITY DEFINER\n' +
-            'SET search_path = public\n' +
-            'AS $$\n' +
-            'BEGIN\n' +
-            '  DELETE FROM auth.users WHERE id = auth.uid();\n' +
-            'END;\n' +
-            '$$;\n\n' +
-            'Após rodar este comando no painel do Supabase, tente clicar em excluir novamente.'
-          );
-          setIsDeletingAccount(false);
-          return;
-        }
-
-        throw deleteError;
-      }
+      if (deleteError) throw deleteError;
 
       setDeleteSuccessMessage('Sua conta e todos os dados foram excluídos permanentemente. Você será desconectado em instantes...');
       toast.success('Conta excluída com sucesso!');
-      setDeleteConfirmText('');
-      setDeletePassword('');
-
-      setTimeout(async () => {
-        await signOut();
-      }, 3000);
+      setTimeout(async () => { await signOut(); }, 3000);
     } catch (err: any) {
       setDeleteErrorMessage(err.message || 'Ocorreu um erro ao processar o encerramento da conta.');
       toast.error(err.message || 'Erro ao processar encerramento');
@@ -361,6 +377,7 @@ export function Configuracoes() {
     { id: 'empresa', label: 'Dados da Empresa', icon: Building2 },
     { id: 'logo', label: 'Logo', icon: ImageIcon },
     { id: 'vendedor', label: 'Dados do Usuário', icon: User },
+    { id: 'customizacao', label: 'Customização da Conta', icon: Palette },
     { id: 'preferencias', label: 'Preferências Comerciais', icon: SettingsIcon },
     { id: 'seguranca', label: 'Segurança', icon: Shield },
     { id: 'encerramento', label: 'Encerramento da Conta', icon: UserX },
@@ -370,7 +387,7 @@ export function Configuracoes() {
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
       <div>
         <h1 className="text-2xl font-bold text-brand-dark mb-2">Configurações da Conta</h1>
-        <p className="text-sm text-slate-500">Personalize as informações que aparecerão nas suas propostas.</p>
+        <p className="text-sm text-slate-500">Personalize as informações, a marca e a aparência da sua plataforma.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-8 items-start">
@@ -406,23 +423,23 @@ export function Configuracoes() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-brand-dark">Razão Social / Nome da Empresa</label>
-                    <input name="company_name" value={profile.company_name || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                    <input name="company_name" value={profile.company_name || ''} onChange={handleChange} className={inputClassName} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-brand-dark">CNPJ</label>
-                    <input name="document" value={profile.document || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                    <input name="document" value={profile.document || ''} onChange={handleChange} className={inputClassName} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-brand-dark">Telefone da Empresa</label>
-                    <input name="phone" value={profile.phone || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                    <input name="phone" value={profile.phone || ''} onChange={handleChange} className={inputClassName} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-brand-dark">E-mail da Empresa</label>
-                    <input name="company_email" type="email" value={profile.company_email || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                    <input name="company_email" type="email" value={profile.company_email || ''} onChange={handleChange} className={inputClassName} />
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-sm font-medium text-brand-dark">Website</label>
-                    <input name="website" placeholder="https://" value={profile.website || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                    <input name="website" placeholder="https://" value={profile.website || ''} onChange={handleChange} className={inputClassName} />
                   </div>
                 </div>
 
@@ -431,19 +448,19 @@ export function Configuracoes() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-brand-dark">CEP</label>
-                      <input name="cep" value={profile.cep || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                      <input name="cep" value={profile.cep || ''} onChange={handleChange} className={inputClassName} />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm font-medium text-brand-dark">Endereço (Rua, Número, Bairro)</label>
-                      <input name="address" value={profile.address || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                      <label className="text-sm font-medium text-brand-dark">Endereço</label>
+                      <input name="address" value={profile.address || ''} onChange={handleChange} className={inputClassName} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-brand-dark">Cidade</label>
-                      <input name="city" value={profile.city || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                      <input name="city" value={profile.city || ''} onChange={handleChange} className={inputClassName} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-brand-dark">Estado (UF)</label>
-                      <input name="state" maxLength={2} value={profile.state || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none uppercase" />
+                      <input name="state" maxLength={2} value={profile.state || ''} onChange={handleChange} className={`${inputClassName} uppercase`} />
                     </div>
                   </div>
                 </div>
@@ -521,15 +538,15 @@ export function Configuracoes() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-brand-dark">Seu Nome (como Vendedor)</label>
-                    <input name="seller_name" value={profile.seller_name || profile.name || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                    <input name="seller_name" value={profile.seller_name || profile.name || ''} onChange={handleChange} className={inputClassName} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-brand-dark">Seu Telefone / WhatsApp</label>
-                    <input name="seller_phone" value={profile.seller_phone || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                    <input name="seller_phone" value={profile.seller_phone || ''} onChange={handleChange} className={inputClassName} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-brand-dark">Seu E-mail</label>
-                    <input name="seller_email" type="email" value={profile.seller_email || ''} onChange={handleChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                    <input name="seller_email" type="email" value={profile.seller_email || ''} onChange={handleChange} className={inputClassName} />
                   </div>
                 </div>
 
@@ -579,6 +596,132 @@ export function Configuracoes() {
             </Card>
           )}
 
+          {activeTab === 'customizacao' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Palette className="h-5 w-5 text-brand-blue" />
+                    Customização da Conta
+                  </CardTitle>
+                  <CardDescription>Use o motor de cores para trocar a paleta visual da plataforma em tempo real.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {PLATFORM_THEME_PRESETS.map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => applyPreset(preset.seed)}
+                        className="rounded-xl border border-brand-border bg-brand-surface p-4 text-left transition hover:border-brand-blue hover:bg-gray-50/70"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-brand-dark">{preset.name}</p>
+                            <p className="mt-1 text-xs text-slate-500">{preset.description}</p>
+                          </div>
+                          <div className="flex -space-x-2">
+                            {[preset.seed.background, preset.seed.primary, preset.seed.accent, preset.seed.warning, preset.seed.success].map((color) => (
+                              <span key={color} className="h-7 w-7 rounded-full border border-brand-border" style={{ background: color }} />
+                            ))}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+                    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-brand-dark">Motor de Cores</h3>
+                        <p className="text-xs text-slate-500">Altere as cores-base. O sistema gera automaticamente hover, cards, bordas e contraste.</p>
+                      </div>
+                      <div className="flex rounded-lg border border-brand-border bg-gray-50 p-1 text-xs">
+                        <button type="button" onClick={() => updateThemeSeed('mode', 'dark')} className={`rounded-md px-3 py-1.5 ${themeSeed.mode === 'dark' ? 'bg-brand-blue text-white' : 'text-slate-500'}`}>Escuro</button>
+                        <button type="button" onClick={() => updateThemeSeed('mode', 'light')} className={`rounded-md px-3 py-1.5 ${themeSeed.mode === 'light' ? 'bg-brand-blue text-white' : 'text-slate-500'}`}>Claro</button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {([
+                        ['primary', 'Cor Primária'],
+                        ['accent', 'Cor Secundária'],
+                        ['background', 'Fundo da Plataforma'],
+                        ['warning', 'Cor Solar / Destaque'],
+                        ['success', 'Cor de Sucesso'],
+                      ] as Array<[keyof PlatformThemeSeed, string]>).map(([field, label]) => (
+                        <div key={field} className="space-y-2">
+                          <label className="text-sm font-medium text-brand-dark">{label}</label>
+                          <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
+                            <input type="color" value={themeSeed[field]} onChange={(event) => updateThemeSeed(field, event.target.value)} className={colorInputClassName} />
+                            <input value={themeSeed[field]} onChange={(event) => updateThemeSeed(field, event.target.value)} className={inputClassName} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-brand-border bg-brand-gray p-5 shadow-inner">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.24em] text-brand-blue">Prévia ao vivo</p>
+                        <h3 className="mt-1 text-xl font-bold text-brand-dark">SolAmigo Pro</h3>
+                      </div>
+                      <span className="rounded-full border border-brand-border bg-brand-surface px-3 py-1 text-xs text-slate-500">{themeSeed.mode === 'dark' ? 'Tema escuro' : 'Tema claro'}</span>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
+                        <p className="text-xs text-slate-500">Clientes ativos</p>
+                        <p className="mt-2 text-2xl font-bold text-brand-dark">24</p>
+                      </div>
+                      <div className="rounded-xl border border-brand-border bg-gray-50 p-4">
+                        <p className="text-xs text-slate-500">Vendido no mês</p>
+                        <p className="mt-2 text-2xl font-bold text-brand-green">R$ 87k</p>
+                      </div>
+                      <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
+                        <p className="text-xs text-slate-500">Propostas</p>
+                        <p className="mt-2 text-2xl font-bold text-brand-yellow">12</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button type="button" className="gap-2"><Sparkles className="h-4 w-4" /> Botão primário</Button>
+                      <Button type="button" variant="outline">Botão secundário</Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
+                    {[
+                      ['Primária', themePalette.primary],
+                      ['Hover', themePalette.primaryHover],
+                      ['Superfície', themePalette.surface],
+                      ['Borda', themePalette.border],
+                      ['Texto', themePalette.text],
+                      ['Mutado', themePalette.mutedText],
+                      ['Sucesso', themePalette.success],
+                      ['Solar', themePalette.warning],
+                    ].map(([label, color]) => (
+                      <div key={label} className="rounded-lg border border-brand-border bg-brand-surface p-3">
+                        <span className="mb-2 block h-8 rounded-md border border-brand-border" style={{ background: color }} />
+                        <p className="font-medium text-brand-dark">{label}</p>
+                        <p className="text-slate-500">{color}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <Button type="button" variant="outline" className="gap-2" onClick={handleResetTheme}>
+                      <RotateCcw className="h-4 w-4" /> Restaurar padrão
+                    </Button>
+                    <Button type="button" className="gap-2" onClick={handleSaveTheme} disabled={isSavingTheme}>
+                      {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {isSavingTheme ? 'Salvando...' : 'Salvar paleta da plataforma'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {activeTab === 'preferencias' && (
             <Card>
               <CardHeader>
@@ -588,12 +731,12 @@ export function Configuracoes() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-brand-dark">Margem de Lucro Padrão (%)</label>
-                  <input type="number" name="default_margin_percentage" value={profile.default_margin_percentage || ''} onChange={handleNumberChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                  <input type="number" name="default_margin_percentage" value={profile.default_margin_percentage || ''} onChange={handleNumberChange} className={inputClassName} />
                   <p className="text-xs text-slate-500">Esta margem será aplicada automaticamente ao criar uma nova proposta.</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-brand-dark">Validade Padrão da Proposta (Dias)</label>
-                  <input type="number" name="default_validity_days" value={profile.default_validity_days || 7} onChange={handleNumberChange} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
+                  <input type="number" name="default_validity_days" value={profile.default_validity_days || 7} onChange={handleNumberChange} className={inputClassName} />
                   <p className="text-xs text-slate-500">Determina a data de expiração calculada a partir da data de criação.</p>
                 </div>
               </CardContent>
@@ -625,36 +768,19 @@ export function Configuracoes() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Lock className="w-5 h-5 text-brand-blue" />
-                    Alterar Senha
-                  </CardTitle>
-                  <CardDescription>Altere a senha de acesso à sua conta. Para sua segurança, você deve confirmar com a sua senha atual.</CardDescription>
+                  <CardTitle className="text-lg flex items-center gap-2"><Lock className="w-5 h-5 text-brand-blue" /> Alterar Senha</CardTitle>
+                  <CardDescription>Altere a senha de acesso à sua conta.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleUpdatePassword} className="space-y-4">
                     {passwordErrorMessage && <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg">{passwordErrorMessage}</div>}
                     {passwordSuccessMessage && <div className="p-3 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg font-medium">{passwordSuccessMessage}</div>}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-brand-dark">Senha Atual</label>
-                      <input type="password" placeholder="Digite sua senha atual" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
-                    </div>
+                    <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Senha Atual</label><input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className={inputClassName} /></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-brand-dark">Nova Senha</label>
-                        <input type="password" placeholder="Mínimo de 6 caracteres" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-brand-dark">Confirmar Nova Senha</label>
-                        <input type="password" placeholder="Confirme sua nova senha" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none" />
-                      </div>
+                      <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Nova Senha</label><input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className={inputClassName} /></div>
+                      <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Confirmar Nova Senha</label><input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className={inputClassName} /></div>
                     </div>
-                    <div className="flex justify-end pt-2">
-                      <Button type="submit" disabled={isUpdatingPassword} className="gap-2">
-                        {isUpdatingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                        {isUpdatingPassword ? 'Enviando...' : 'Alterar Senha'}
-                      </Button>
-                    </div>
+                    <div className="flex justify-end pt-2"><Button type="submit" disabled={isUpdatingPassword} className="gap-2">{isUpdatingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}{isUpdatingPassword ? 'Enviando...' : 'Alterar Senha'}</Button></div>
                   </form>
                 </CardContent>
               </Card>
@@ -664,40 +790,23 @@ export function Configuracoes() {
           {activeTab === 'encerramento' && (
             <Card className="border-red-200">
               <CardHeader className="bg-red-50/50 border-b border-red-100 rounded-t-xl">
-                <CardTitle className="text-lg text-red-700 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                  Encerramento da Conta
-                </CardTitle>
+                <CardTitle className="text-lg text-red-700 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-red-600" /> Encerramento da Conta</CardTitle>
                 <CardDescription className="text-red-600/80">Esta ação é permanente e irreversível.</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
                 <form onSubmit={handleDeleteAccount} className="space-y-4">
                   {deleteErrorMessage && <div className="p-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg whitespace-pre-wrap">{deleteErrorMessage}</div>}
                   {deleteSuccessMessage && <div className="p-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg font-medium">{deleteSuccessMessage}</div>}
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm space-y-2">
-                    <p className="font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />Aviso Importante:</p>
-                    <p className="text-xs text-amber-700 leading-relaxed">Para concluir a exclusão definitiva, digite exatamente a frase de confirmação e sua senha atual.</p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-brand-dark">Confirme digitando <strong className="text-red-600">excluir a conta</strong>:</label>
-                    <input type="text" placeholder="Digite 'excluir a conta' para confirmar" value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-brand-dark">Sua Senha Atual</label>
-                    <input type="password" placeholder="Digite sua senha para confirmar" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} className="w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-dark focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none" />
-                  </div>
-                  <div className="flex justify-end pt-4 border-t border-brand-border">
-                    <Button type="submit" variant="destructive" disabled={isDeletingAccount} className="gap-2 bg-red-600 hover:bg-red-700 text-white border-none">
-                      {isDeletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
-                      {isDeletingAccount ? 'Excluindo conta...' : 'Excluir Minha Conta Permanentemente'}
-                    </Button>
-                  </div>
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm space-y-2"><p className="font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />Aviso Importante:</p><p className="text-xs text-amber-700 leading-relaxed">Para concluir a exclusão definitiva, digite exatamente a frase de confirmação e sua senha atual.</p></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Confirme digitando <strong className="text-red-600">excluir a conta</strong>:</label><input type="text" value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} className={inputClassName} /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Sua Senha Atual</label><input type="password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} className={inputClassName} /></div>
+                  <div className="flex justify-end pt-4 border-t border-brand-border"><Button type="submit" variant="destructive" disabled={isDeletingAccount} className="gap-2 bg-red-600 hover:bg-red-700 text-white border-none">{isDeletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}{isDeletingAccount ? 'Excluindo conta...' : 'Excluir Minha Conta Permanentemente'}</Button></div>
                 </form>
               </CardContent>
             </Card>
           )}
 
-          {activeTab !== 'seguranca' && activeTab !== 'encerramento' && (
+          {activeTab !== 'seguranca' && activeTab !== 'encerramento' && activeTab !== 'customizacao' && (
             <div className="mt-6 flex justify-end">
               <Button onClick={handleSave} className="gap-2" disabled={isSaving}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

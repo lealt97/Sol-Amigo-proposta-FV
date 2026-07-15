@@ -86,11 +86,32 @@ input[type="file"]::file-selector-button {
   padding-right: 0.35rem;
 }
 
+/* Fallback automático para listas já existentes em telas de histórico/status. */
+div.space-y-6:has(> div.relative.pl-6.border-l.border-brand-border) {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #386A9E rgba(14, 35, 55, 0.55);
+}
+
+div.space-y-2.pt-2.border-t.border-brand-border {
+  max-height: 11rem;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #386A9E rgba(14, 35, 55, 0.55);
+}
+
 .scroll-after-3-cards::-webkit-scrollbar,
 .scroll-after-3-table::-webkit-scrollbar,
 .scroll-after-3-compact::-webkit-scrollbar,
 .scroll-after-3-timeline::-webkit-scrollbar,
-.scroll-after-3-grid::-webkit-scrollbar {
+.scroll-after-3-grid::-webkit-scrollbar,
+div.space-y-6:has(> div.relative.pl-6.border-l.border-brand-border)::-webkit-scrollbar,
+div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
@@ -99,7 +120,9 @@ input[type="file"]::file-selector-button {
 .scroll-after-3-table::-webkit-scrollbar-track,
 .scroll-after-3-compact::-webkit-scrollbar-track,
 .scroll-after-3-timeline::-webkit-scrollbar-track,
-.scroll-after-3-grid::-webkit-scrollbar-track {
+.scroll-after-3-grid::-webkit-scrollbar-track,
+div.space-y-6:has(> div.relative.pl-6.border-l.border-brand-border)::-webkit-scrollbar-track,
+div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar-track {
   background: rgba(14, 35, 55, 0.55);
   border-radius: 999px;
 }
@@ -108,7 +131,9 @@ input[type="file"]::file-selector-button {
 .scroll-after-3-table::-webkit-scrollbar-thumb,
 .scroll-after-3-compact::-webkit-scrollbar-thumb,
 .scroll-after-3-timeline::-webkit-scrollbar-thumb,
-.scroll-after-3-grid::-webkit-scrollbar-thumb {
+.scroll-after-3-grid::-webkit-scrollbar-thumb,
+div.space-y-6:has(> div.relative.pl-6.border-l.border-brand-border)::-webkit-scrollbar-thumb,
+div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar-thumb {
   background: #386A9E;
   border-radius: 999px;
 }

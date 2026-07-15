@@ -14,6 +14,15 @@ import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
 
 const PENDING_STATUSES = ['draft', 'pending'];
 
+const isProposalInFilling = (proposal: Proposal) => {
+  return PENDING_STATUSES.includes(proposal.status)
+    && !proposal.pdf_url
+    && !proposal.sent_whatsapp_at
+    && !proposal.public_viewed_at
+    && !proposal.accepted_at
+    && !proposal.rejected_at;
+};
+
 export function ProposalList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [filteredProposals, setFilteredProposals] = useState<Proposal[]>([]);
@@ -195,63 +204,69 @@ export function ProposalList() {
                   </td>
                 </tr>
               ) : filteredProposals.length > 0 ? (
-                filteredProposals.map((proposal) => (
-                  <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</div>
-                      <div className="text-[11px] text-slate-500">{proposal.code || 'Sem código'}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-brand-dark">{proposal.client?.name || '-'}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {getStatusBadge(proposal.status)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {formatDate(proposal.created_at)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
-                          title="Visualizar"
-                          onClick={() => navigate(`/propostas/${proposal.id}`)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                          title="Editar"
-                          onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                          title="Duplicar"
-                          onClick={() => handleDuplicate(proposal)}
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
-                          title="Excluir"
-                          onClick={() => triggerDelete(proposal.id, proposal.title)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                filteredProposals.map((proposal) => {
+                  const inFilling = isProposalInFilling(proposal);
+                  const editTitle = inFilling ? 'Continuar preenchimento' : 'Editar proposta';
+
+                  return (
+                    <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</div>
+                        <div className="text-[11px] text-slate-500">{proposal.code || 'Sem código'}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-brand-dark">{proposal.client?.name || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {getStatusBadge(proposal.status)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">
+                        {formatDate(proposal.created_at)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
+                            title="Visualizar"
+                            onClick={() => navigate(`/propostas/${proposal.id}`)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
+                            title={editTitle}
+                            aria-label={editTitle}
+                            onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
+                            title="Duplicar"
+                            onClick={() => handleDuplicate(proposal)}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
+                            title="Excluir"
+                            onClick={() => triggerDelete(proposal.id, proposal.title)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-sm">

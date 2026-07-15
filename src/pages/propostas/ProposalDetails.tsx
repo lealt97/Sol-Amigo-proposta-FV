@@ -15,6 +15,8 @@ import { formatDate } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { generateAndUploadPdf } from '../../lib/pdf/generateProposalPdf';
 
+const PUBLIC_LINK_STATUSES = ['draft', 'pending', 'sent', 'viewed'];
+
 export function ProposalDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -36,6 +38,11 @@ export function ProposalDetails() {
     ? pdfModels.find((model) => model.id === selectedPdfModelId)
     : defaultPdfModel;
 
+  const loadEvents = async (proposalId: string) => {
+    const eventData = await proposalEventService.getEvents(proposalId);
+    setEvents(eventData);
+  };
+
   useEffect(() => {
     async function loadProposal() {
       if (!id) return;
@@ -43,9 +50,7 @@ export function ProposalDetails() {
         setIsLoading(true);
         const data = await proposalService.getProposalById(id);
         setProposal(data);
-
-        const eventData = await proposalEventService.getEvents(id);
-        setEvents(eventData);
+        await loadEvents(id);
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar detalhes da proposta');
       } finally {
@@ -75,6 +80,50 @@ export function ProposalDetails() {
     loadPdfModels();
   }, [proposal?.user_id]);
 
+  const formatMoney = (val: number | null | undefined) => {
+    if (val == null) return '-';
+    return 'R$ ' + val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const getPublicLink = (token?: string | null) => token ? `${window.location.origin}/proposta/${token}` : '';
+
+  const ensurePublicToken = async (currentProposal: Proposal) => {
+    if (currentProposal.public_token) return currentProposal.public_token;
+
+    const publicToken = crypto.randomUUID().replace(/-/g, '');
+    const { error: updateError } = await supabase
+      .from('proposals')
+      .update({ public_token: publicToken })
+      .eq('id', currentProposal.id);
+
+    if (updateError) throw updateError;
+
+    setProposal({ ...currentProposal, public_token: publicToken });
+    return publicToken;
+  };
+
+  const updateProposalStatusAutomatically = async (
+    updates: Partial<Proposal>,
+    eventDescription?: string,
+  ) => {
+    if (!proposal) return;
+
+    const { error: updateError } = await supabase
+      .from('proposals')
+      .update(updates)
+      .eq('id', proposal.id);
+
+    if (updateError) throw updateError;
+
+    const updatedProposal = { ...proposal, ...updates } as Proposal;
+    setProposal(updatedProposal);
+
+    if (eventDescription) {
+      await proposalEventService.logEvent(proposal.id, 'status_changed', eventDescription);
+      await loadEvents(proposal.id);
+    }
+  };
+
   const handleDuplicate = async () => {
     if (!user || !proposal) return;
     try {
@@ -87,6 +136,35 @@ export function ProposalDetails() {
       navigate(`/propostas/${duplicated.id}/editar`);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao duplicar proposta');
+    }
+  };
+
+  const handleGeneratePdf = async () => {
+    if (!proposal) return;
+    setGeneratingPdf(true);
+    try {
+      const url = await generateAndUploadPdf(proposal, selectedPdfModelId || undefined);
+      if (!url) {
+        toast.error('Erro ao gerar o PDF. Verifique se o bucket de storage está configurado.');
+        return;
+      }
+
+      const statusUpdate = proposal.status === 'draft'
+        ? { pdf_url: url, status: 'pending' as Proposal['status'] }
+        : { pdf_url: url };
+
+      await updateProposalStatusAutomatically(
+        statusUpdate,
+        proposal.status === 'draft' ? 'PDF gerado e proposta ficou pendente para envio' : 'PDF da proposta atualizado'
+      );
+
+      toast.success(selectedPdfModel ? `PDF gerado com o modelo ${selectedPdfModel.name}.` : 'PDF gerado com o modelo padrão.');
+      window.open(url, '_blank');
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Ocorreu um erro ao gerar o PDF.');
+    } finally {
+      setGeneratingPdf(false);
     }
   };
 
@@ -103,48 +181,47 @@ export function ProposalDetails() {
       return;
     }
 
-    let publicToken = proposal.public_token;
-    const updates: any = {
-      sent_whatsapp_at: new Date().toISOString()
-    };
-
-    if (!publicToken) {
-      publicToken = crypto.randomUUID();
-      updates.public_token = publicToken;
-    }
-
-    if (proposal.status === 'draft') {
-      updates.status = 'pending';
-    }
-
     try {
+      const publicToken = await ensurePublicToken(proposal);
+      const sentAt = new Date().toISOString();
+      const nextStatus = PUBLIC_LINK_STATUSES.includes(proposal.status) ? 'sent' : proposal.status;
+
       const { error: updateError } = await supabase
         .from('proposals')
-        .update(updates)
+        .update({
+          public_token: publicToken,
+          sent_whatsapp_at: sentAt,
+          status: nextStatus,
+        })
         .eq('id', proposal.id);
 
       if (updateError) throw updateError;
 
-      setProposal({
+      const updatedProposal = {
         ...proposal,
-        ...updates
-      });
+        public_token: publicToken,
+        sent_whatsapp_at: sentAt,
+        status: nextStatus as Proposal['status'],
+      };
+      setProposal(updatedProposal);
+
+      await proposalEventService.logEvent(proposal.id, 'sent', 'Proposta enviada pelo WhatsApp');
+      await loadEvents(proposal.id);
+
+      const publicLink = getPublicLink(publicToken);
+      const power = proposal.solar?.installed_power_kwp ? proposal.solar.installed_power_kwp.toFixed(2) : '0';
+      const savings = formatMoney(proposal.solar?.monthly_savings);
+      const finalPrice = formatMoney(proposal.final_price);
+      const payback = proposal.solar?.payback_formatted || 'A calcular';
+
+      const message = `Olá, ${proposal.client.name}! Tudo bem?\n\nSegue sua proposta personalizada de energia solar fotovoltaica:\n\nPotência do sistema: ${power} kWp\nEconomia mensal estimada: ${savings}\nInvestimento: ${finalPrice}\nPayback estimado: ${payback}\n\nVocê pode visualizar e aprovar sua proposta pelo link abaixo:\n${publicLink}\n\nQualquer dúvida, estou à disposição.`;
+
+      setWaMessage(message);
+      setShowWaModal(true);
     } catch (err: any) {
       console.error(err);
-      toast.error('Erro ao atualizar dados da proposta antes do envio.');
-      return;
+      toast.error('Erro ao preparar envio da proposta.');
     }
-
-    const publicLink = `${window.location.origin}/proposta/${publicToken}`;
-    const power = proposal.solar?.installed_power_kwp ? proposal.solar.installed_power_kwp.toFixed(2) : '0';
-    const savings = formatMoney(proposal.solar?.monthly_savings);
-    const finalPrice = formatMoney(proposal.final_price);
-    const payback = proposal.solar?.payback_formatted || '0 anos';
-
-    const message = `Olá, ${proposal.client.name}! Tudo bem?\n\nSegue sua proposta personalizada de energia solar fotovoltaica:\n\nPotência do sistema: ${power} kWp\nEconomia mensal estimada: ${savings}\nInvestimento: ${finalPrice}\nPayback estimado: ${payback}\n\nVocê pode visualizar e aprovar sua proposta pelo link abaixo:\n${publicLink}\n\nQualquer dúvida, estou à disposição.`;
-
-    setWaMessage(message);
-    setShowWaModal(true);
   };
 
   const openWhatsApp = () => {
@@ -160,75 +237,36 @@ export function ProposalDetails() {
     toast.success('Mensagem copiada!');
   };
 
-  const handleGeneratePdf = async () => {
-    if (!proposal) return;
-    setGeneratingPdf(true);
-    try {
-      const url = await generateAndUploadPdf(proposal, selectedPdfModelId || undefined);
-      if (url) {
-        setProposal({ ...proposal, pdf_url: url });
-        toast.success(selectedPdfModel ? `PDF gerado com o modelo ${selectedPdfModel.name}.` : 'PDF gerado com o modelo padrão.');
-        window.open(url, '_blank');
-      } else {
-        toast.error('Erro ao gerar o PDF. Verifique se o bucket de storage está configurado.');
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error('Ocorreu um erro ao gerar o PDF.');
-    } finally {
-      setGeneratingPdf(false);
-    }
-  };
-
-  const handleStatusChange = async (newStatus: Proposal['status']) => {
-    if (!proposal) return;
-    try {
-      const { error: updateError } = await supabase
-        .from('proposals')
-        .update({ status: newStatus })
-        .eq('id', proposal.id);
-
-      if (updateError) throw updateError;
-
-      setProposal({ ...proposal, status: newStatus });
-      await proposalEventService.logEvent(proposal.id, 'status_changed', `Status alterado manualmente para ${newStatus}`);
-
-      const eventData = await proposalEventService.getEvents(proposal.id);
-      setEvents(eventData);
-    } catch (err: any) {
-      toast.error('Erro ao atualizar status');
-    }
-  };
-
-  const formatMoney = (val: number | null | undefined) => {
-    if (val == null) return '-';
-    return 'R$ ' + val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const copyPublicLink = () => {
+    if (!proposal?.public_token) return;
+    navigator.clipboard.writeText(getPublicLink(proposal.public_token));
+    toast.success('Link copiado!');
   };
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      draft: 'bg-gray-100 text-gray-500 border-gray-200',
-      sent: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
-      viewed: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
+      draft: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
       pending: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
+      sent: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      viewed: 'bg-brand-blue/10 text-brand-blue border-brand-blue/20',
       accepted: 'bg-brand-green/20 text-emerald-700 border-brand-green/30',
       approved: 'bg-brand-green/20 text-emerald-700 border-brand-green/30',
       rejected: 'bg-red-50 text-red-600 border-red-100',
       expired: 'bg-slate-700/10 text-slate-700 border-slate-700/20',
     };
     const labels: Record<string, string> = {
-      draft: 'Rascunho',
-      sent: 'Pendente',
-      viewed: 'Visualizada',
+      draft: 'Pendente',
       pending: 'Pendente',
+      sent: 'Enviada',
+      viewed: 'Visualizada',
       accepted: 'Aprovada',
       approved: 'Aprovada',
       rejected: 'Recusada',
       expired: 'Expirada',
     };
     return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.draft}`}>
-        {labels[status] || 'Rascunho'}
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.pending}`}>
+        {labels[status] || 'Pendente'}
       </span>
     );
   };
@@ -249,6 +287,17 @@ export function ProposalDetails() {
     );
   }
 
+  const statusHelp: Record<string, string> = {
+    draft: 'Pendente: gere o PDF e envie ao cliente.',
+    pending: 'Pendente: pronta para envio ou aguardando ação do cliente.',
+    sent: 'Enviada: link público enviado ao cliente.',
+    viewed: 'Visualizada: cliente abriu o link público.',
+    accepted: 'Aprovada: cliente aceitou a proposta.',
+    approved: 'Aprovada: cliente aceitou a proposta.',
+    rejected: 'Recusada: cliente recusou a proposta.',
+    expired: 'Expirada: proposta fora do prazo de validade.',
+  };
+
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-brand-border">
@@ -261,24 +310,15 @@ export function ProposalDetails() {
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold text-white tracking-tight">{proposal.title || 'Proposta sem título'}</h1>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
                 {getStatusBadge(proposal.status)}
-                <select
-                  value={proposal.status}
-                  onChange={(e) => handleStatusChange(e.target.value as Proposal['status'])}
-                  className="bg-brand-surface text-xs text-slate-300 border border-brand-border rounded px-2.5 py-1 outline-none font-semibold cursor-pointer focus:border-brand-blue"
-                >
-                  <option value="draft">Rascunho</option>
-                  <option value="pending">Pendente</option>
-                  <option value="approved">Aprovada</option>
-                  <option value="rejected">Recusada</option>
-                  <option value="expired">Expirada</option>
-                </select>
+                <span className="text-[11px] text-slate-400">Status automático</span>
               </div>
             </div>
             <p className="text-sm text-slate-400 mt-1">
               {proposal.code ? `Código: ${proposal.code} • ` : ''}Criada em {formatDate(proposal.created_at)}
             </p>
+            <p className="text-xs text-slate-500 mt-1">{statusHelp[proposal.status] || statusHelp.pending}</p>
           </div>
         </div>
 
@@ -310,11 +350,10 @@ export function ProposalDetails() {
                 Documento & Envio
               </CardTitle>
               <CardDescription className="text-slate-400 text-xs">
-                Gere e baixe a proposta comercial em PDF ou envie ao cliente.
+                Gere o PDF e envie ao cliente. O status muda automaticamente conforme o fluxo.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
-              {/* PDF Model selector inside the action card */}
               <div className="space-y-1.5">
                 <label htmlFor="pdf_model_id" className="text-xs font-semibold text-slate-300">
                   Modelo de Design PDF
@@ -344,7 +383,6 @@ export function ProposalDetails() {
 
               <div className="h-px bg-brand-border/60" />
 
-              {/* Action Buttons */}
               <div className="flex flex-col gap-2.5">
                 <Button
                   onClick={handleGeneratePdf}
@@ -416,16 +454,13 @@ export function ProposalDetails() {
                 <div className="p-3 bg-brand-surface border border-brand-border rounded-lg">
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <p className="text-xs text-slate-500 truncate">
-                      {window.location.origin}/proposta/{proposal.public_token}
+                      {getPublicLink(proposal.public_token)}
                     </p>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6 text-slate-500 hover:text-brand-dark"
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/proposta/${proposal.public_token}`);
-                        toast.success('Link copiado!');
-                      }}
+                      onClick={copyPublicLink}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -441,6 +476,12 @@ export function ProposalDetails() {
                 </div>
 
                 <div className="space-y-2 pt-2 border-t border-brand-border">
+                  {proposal.sent_whatsapp_at && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500">Enviada em:</span>
+                      <span className="text-brand-dark">{formatDate(proposal.sent_whatsapp_at)}</span>
+                    </div>
+                  )}
                   {proposal.public_viewed_at && (
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-slate-500">Visualizada em:</span>
@@ -551,7 +592,7 @@ export function ProposalDetails() {
             <Card className="flex-1">
               <CardHeader>
                 <CardTitle className="text-lg">Histórico da Proposta</CardTitle>
-                <CardDescription>Eventos e alterações de status.</CardDescription>
+                <CardDescription>Eventos e alterações automáticas de status.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">

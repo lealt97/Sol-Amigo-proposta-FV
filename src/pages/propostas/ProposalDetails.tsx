@@ -205,7 +205,7 @@ export function ProposalDetails() {
       };
       setProposal(updatedProposal);
 
-      await proposalEventService.logEvent(proposal.id, 'sent', 'Proposta enviada pelo WhatsApp');
+      await proposalEventService.logEvent(proposal.id, 'whatsapp_sent', 'Proposta enviada pelo WhatsApp');
       await loadEvents(proposal.id);
 
       const publicLink = getPublicLink(publicToken);

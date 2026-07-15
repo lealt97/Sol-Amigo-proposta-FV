@@ -8,6 +8,7 @@ import { Layout } from "./components/Layout";
 import { AuthProvider } from "./contexts/AuthContext";
 import { Toaster } from "sonner";
 import { ProtectedRoute, PublicRoute } from "./components/auth/RouteGuards";
+import { PlatformThemeBootstrap } from "./components/theme/PlatformThemeBootstrap";
 
 // Pages
 import { Login } from "./pages/Login";
@@ -33,6 +34,7 @@ function Home() {
 export default function App() {
   return (
     <AuthProvider>
+      <PlatformThemeBootstrap />
       <Toaster position="top-right" richColors />
       <Router>
         <Routes>

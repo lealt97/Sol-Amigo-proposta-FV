@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase/client';
 import { proposalEventService } from './proposalEventService';
 
 const PUBLIC_ACTION_STATUSES = ['pending', 'sent', 'draft', 'viewed'];
+const PUBLIC_VIEW_STATUSES = ['pending', 'sent', 'draft'];
 
 export const publicProposalService = {
   async getProposalByToken(token: string) {
@@ -28,10 +29,19 @@ export const publicProposalService = {
        return rpcData;
     }
 
+    let publicViewedAt = data.public_viewed_at;
+    let currentStatus = data.status;
+
     if (data && !data.public_viewed_at) {
+      publicViewedAt = new Date().toISOString();
+      currentStatus = PUBLIC_VIEW_STATUSES.includes(data.status) ? 'viewed' : data.status;
+
       await supabase
         .from('proposals')
-        .update({ public_viewed_at: new Date().toISOString() })
+        .update({
+          public_viewed_at: publicViewedAt,
+          status: currentStatus,
+        })
         .eq('public_token', token);
     }
     
@@ -60,7 +70,13 @@ export const publicProposalService = {
     // Adapt solar to array if needed or use single object
     const solarCalc = Array.isArray(data.solar) ? data.solar[0] : data.solar;
     
-    return { ...data, company, solar: solarCalc };
+    return {
+      ...data,
+      status: currentStatus,
+      public_viewed_at: publicViewedAt,
+      company,
+      solar: solarCalc,
+    };
   },
 
   async updateStatus(token: string, status: 'approved' | 'rejected', reason?: string, proposalId?: string) {

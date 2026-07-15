@@ -13,7 +13,7 @@ import { profileService } from '../../services/profileService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
-import { ArrowLeft, ArrowRight, Save, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { StepClient } from './steps/StepClient';
 import { StepConsumption } from './steps/StepConsumption';
 import { StepProject } from './steps/StepProject';
@@ -54,6 +54,7 @@ export function ProposalWizard() {
   const isSubmittedRef = useRef(false);
   const proposalIdRef = useRef<string | null>(id || null);
   const isInitializedRef = useRef(false);
+  const draftCreationPromiseRef = useRef<Promise<string | null> | null>(null);
 
   useEffect(() => {
     proposalIdRef.current = proposalId;
@@ -211,16 +212,26 @@ export function ProposalWizard() {
       if (currentId) {
         await proposalService.updateProposal(currentId, values);
         return currentId;
-      } else {
+      }
+
+      if (draftCreationPromiseRef.current) {
+        return await draftCreationPromiseRef.current;
+      }
+
+      draftCreationPromiseRef.current = (async () => {
         const newProposal = await proposalService.createProposal(values, user.id);
         proposalIdRef.current = newProposal.id;
         setProposalId(newProposal.id);
         navigate(`/propostas/${newProposal.id}/editar`, { replace: true });
         return newProposal.id;
-      }
+      })();
+
+      return await draftCreationPromiseRef.current;
     } catch (err) {
-      console.error('Error auto-saving draft:', err);
-      return currentId;
+      console.error('Error auto-saving proposal:', err);
+      return proposalIdRef.current || currentId;
+    } finally {
+      draftCreationPromiseRef.current = null;
     }
   };
 
@@ -252,14 +263,9 @@ export function ProposalWizard() {
       if (isSubmittedRef.current) return;
       const values = latestValuesRef.current;
       const currentId = proposalIdRef.current;
-      if (user && values && values.client_id) {
-        if (currentId) {
-          proposalService.updateProposal(currentId, values)
-            .catch(err => console.error('Error saving on unmount:', err));
-        } else {
-          proposalService.createProposal(values, user.id)
-            .catch(err => console.error('Error creating on unmount:', err));
-        }
+      if (user && values && values.client_id && currentId) {
+        proposalService.updateProposal(currentId, values)
+          .catch(err => console.error('Error saving on unmount:', err));
       }
     };
   }, [user]);
@@ -342,11 +348,15 @@ export function ProposalWizard() {
       isSubmittedRef.current = true;
 
       const currentId = proposalIdRef.current;
-      if (currentId) {
-        await proposalService.updateProposal(currentId, data);
-        navigate(`/propostas/${currentId}`);
+      const savedId = currentId || await saveDraft(data, null);
+
+      if (savedId) {
+        await proposalService.updateProposal(savedId, data);
+        navigate(`/propostas/${savedId}`);
       } else {
         const newProposal = await proposalService.createProposal(data, user.id);
+        proposalIdRef.current = newProposal.id;
+        setProposalId(newProposal.id);
         navigate(`/propostas/${newProposal.id}`);
       }
     } catch (err: any) {
@@ -383,12 +393,12 @@ export function ProposalWizard() {
           {isAutoSaving ? (
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-brand-blue animate-ping" />
-              <span className="text-slate-400 font-medium text-xs">Salvando rascunho...</span>
+              <span className="text-slate-400 font-medium text-xs">Salvando proposta...</span>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-slate-500 text-xs">Rascunho salvo automaticamente</span>
+              <span className="text-slate-500 text-xs">Proposta salva automaticamente</span>
             </div>
           )}
         </div>

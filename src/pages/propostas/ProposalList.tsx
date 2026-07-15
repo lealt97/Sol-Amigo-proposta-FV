@@ -7,10 +7,12 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Select } from '../../components/ui/Select';
-import { Search, Plus, MoreHorizontal, Copy, Edit, Trash2, Eye } from 'lucide-react';
+import { Search, Plus, Copy, Edit, Trash2, Eye } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
+
+const PENDING_STATUSES = ['draft', 'pending'];
 
 export function ProposalList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -51,7 +53,11 @@ export function ProposalList() {
       const matchSearch = p.title?.toLowerCase().includes(term) || 
                           p.code?.toLowerCase().includes(term) ||
                           p.client?.name.toLowerCase().includes(term);
-      const matchStatus = statusFilter ? p.status === statusFilter : true;
+      const matchStatus = statusFilter
+        ? statusFilter === 'pending_like'
+          ? PENDING_STATUSES.includes(p.status)
+          : p.status === statusFilter
+        : true;
       return matchSearch && matchStatus;
     });
     setFilteredProposals(filtered);
@@ -94,26 +100,28 @@ export function ProposalList() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      draft: 'bg-gray-100 text-gray-500 border-gray-200',
-      sent: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
-      viewed: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
+      draft: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
       pending: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
+      sent: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      viewed: 'bg-brand-blue/10 text-brand-blue border-brand-blue/20',
       accepted: 'bg-brand-green/20 text-emerald-700 border-brand-green/30',
+      approved: 'bg-brand-green/20 text-emerald-700 border-brand-green/30',
       rejected: 'bg-red-50 text-red-600 border-red-100',
       expired: 'bg-slate-700/10 text-slate-700 border-slate-700/20',
     };
     const labels: Record<string, string> = {
-      draft: 'Rascunho',
-      sent: 'Pendente',
-      viewed: 'Visualizada',
+      draft: 'Pendente',
       pending: 'Pendente',
+      sent: 'Enviada',
+      viewed: 'Visualizada',
       accepted: 'Aprovada',
+      approved: 'Aprovada',
       rejected: 'Recusada',
       expired: 'Expirada',
     };
     return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.draft}`}>
-        {labels[status] || 'Rascunho'}
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.pending}`}>
+        {labels[status] || 'Pendente'}
       </span>
     );
   };
@@ -150,10 +158,10 @@ export function ProposalList() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="">Todos os status</option>
-              <option value="draft">Rascunho</option>
+              <option value="pending_like">Pendente</option>
               <option value="sent">Enviada</option>
               <option value="viewed">Visualizada</option>
-              <option value="accepted">Aprovada</option>
+              <option value="approved">Aprovada</option>
               <option value="rejected">Recusada</option>
             </Select>
           </div>

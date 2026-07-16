@@ -131,8 +131,40 @@ export async function generateAndUploadPdf(
       .eq('id', enrichedProposal.id);
 
     if (updateError) {
-      console.error('Error updating proposal with private PDF path:', updateError);
-      return null;
+      console.warn('Modern update failed, attempting fallback update without pdf_storage_path:', updateError);
+
+      const { data: urlData } = supabase.storage
+        .from('proposals')
+        .getPublicUrl(filePath);
+      const publicPdfUrl = urlData?.publicUrl || securePdfUrl;
+
+      // Fallback 1: Try updating with public_token and pdf_url
+      const { error: fallbackTokenError } = await supabase
+        .from('proposals')
+        .update({
+          public_token: publicToken,
+          pdf_url: publicPdfUrl,
+        })
+        .eq('id', enrichedProposal.id);
+
+      if (fallbackTokenError) {
+        console.warn('Update with public_token failed, trying fallback with only pdf_url:', fallbackTokenError);
+
+        // Fallback 2: Try updating ONLY pdf_url
+        const { error: fallbackUrlOnlyError } = await supabase
+          .from('proposals')
+          .update({
+            pdf_url: publicPdfUrl,
+          })
+          .eq('id', enrichedProposal.id);
+
+        if (fallbackUrlOnlyError) {
+          console.error('All fallback update strategies for PDF generation failed:', fallbackUrlOnlyError);
+          return null;
+        }
+      }
+
+      return publicPdfUrl;
     }
 
     return securePdfUrl;

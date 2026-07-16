@@ -375,7 +375,7 @@ export const proposalService = {
     }
 
     const securePdfUrl = buildSecurePdfUrl(data?.public_token);
-    if (data?.pdf_storage_path && securePdfUrl) {
+    if (data && 'pdf_storage_path' in data && data.pdf_storage_path && securePdfUrl) {
       data.pdf_url = securePdfUrl;
     }
 

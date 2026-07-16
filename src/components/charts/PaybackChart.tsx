@@ -36,16 +36,16 @@ export const PaybackChart: React.FC<PaybackChartProps> = ({ data, investimento }
     if (active && payload && payload.length) {
       const item = payload[0].payload as TabelaRetornoAno;
       return (
-        <div className="bg-gray-50 border border-brand-border p-3 rounded-lg shadow-xl">
+        <div className="bg-brand-surface border border-brand-border p-3 rounded-lg shadow-xl">
           <p className="text-brand-dark font-medium mb-2">Ano {item.ano}</p>
           <div className="space-y-1 text-sm">
-            <p className="text-emerald-500">
+            <p className="text-brand-green">
               Retorno: {formatMoney(item.retorno)}
             </p>
-            <p className="text-brand-blue">
+            <p className="text-brand-primary">
               Investimento: {formatMoney(item.investimento)}
             </p>
-            <p className={item.diferenca >= 0 ? "text-emerald-500 font-medium" : "text-red-400 font-medium"}>
+            <p className={item.diferenca >= 0 ? "text-brand-green font-medium" : "text-red-400 font-medium"}>
               Diferença: {formatMoney(item.diferenca)}
             </p>
           </div>
@@ -62,34 +62,34 @@ export const PaybackChart: React.FC<PaybackChartProps> = ({ data, investimento }
           data={data}
           margin={{ top: 30, right: 30, left: 20, bottom: 20 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#27272A" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-brand-border)" vertical={false} />
           <XAxis 
             dataKey="ano" 
-            stroke="#71717A" 
-            tick={{ fill: '#71717A', fontSize: 12 }}
-            tickLine={{ stroke: '#27272A' }}
-            axisLine={{ stroke: '#27272A' }}
+            stroke="var(--color-brand-border)" 
+            tick={{ fill: 'var(--color-slate-500)', fontSize: 12 }}
+            tickLine={{ stroke: 'var(--color-brand-border)' }}
+            axisLine={{ stroke: 'var(--color-brand-border)' }}
           />
           <YAxis 
             tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
-            stroke="#71717A"
-            tick={{ fill: '#71717A', fontSize: 12 }}
-            tickLine={{ stroke: '#27272A' }}
-            axisLine={{ stroke: '#27272A' }}
+            stroke="var(--color-brand-border)"
+            tick={{ fill: 'var(--color-slate-500)', fontSize: 12 }}
+            tickLine={{ stroke: 'var(--color-brand-border)' }}
+            axisLine={{ stroke: 'var(--color-brand-border)' }}
             width={80}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#27272A', opacity: 0.4 }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--color-brand-surface)', opacity: 0.4 }} />
           
           <ReferenceLine 
             y={investimento} 
-            stroke="#F59E0B" 
+            stroke="var(--color-brand-yellow)" 
             strokeDasharray="3 3" 
             strokeWidth={2}
           >
             <Label 
               value="Investimento Inicial" 
               position="insideTopLeft" 
-              fill="#F59E0B" 
+              fill="var(--color-brand-yellow)" 
               fontSize={12} 
               offset={10}
             />
@@ -100,7 +100,7 @@ export const PaybackChart: React.FC<PaybackChartProps> = ({ data, investimento }
               <Label 
                 value="PAYBACK ATINGIDO" 
                 position="top" 
-                fill="#10B981" 
+                fill="var(--color-brand-green)" 
                 fontSize={12} 
                 fontWeight="bold"
                 offset={10}
@@ -112,7 +112,7 @@ export const PaybackChart: React.FC<PaybackChartProps> = ({ data, investimento }
             {data.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
-                fill={index === paybackYearIndex ? '#10B981' : '#3F3F46'} 
+                fill={index === paybackYearIndex ? 'var(--color-brand-green)' : 'var(--color-brand-primary)'} 
               />
             ))}
           </Bar>

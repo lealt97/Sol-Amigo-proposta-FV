@@ -1,6 +1,5 @@
 import { PdfTheme, TransformConfig } from '../../../types/pdfModels';
 import { buildSvgTemplate } from '../../../features/design-pdf/engines/svgTemplateEngine';
-import { applyCoverDataOverlay } from './coverDataOverlay';
 
 type CoverValues = {
   clientName?: string;
@@ -24,9 +23,9 @@ export function buildCoverSvg(
   theme: CoverTheme,
   values: CoverValues = {},
   modelId?: string,
-  presetId?: string,
+  _presetId?: string,
 ) {
-  const svgWithEditableTexts = buildSvgTemplate({
+  return buildSvgTemplate({
     svgSource,
     theme,
     texts: {
@@ -34,6 +33,7 @@ export function buildCoverSvg(
       powerKwp: values.powerKwp,
       cityState: values.cityState,
       date: values.date,
+      validityText: values.validityText,
     },
     logoUrl: values.logoUrl,
     coverImageUrl: values.coverImageUrl,
@@ -41,17 +41,4 @@ export function buildCoverSvg(
     coverImageTransform: values.coverImageTransform,
     modelId,
   });
-
-  return applyCoverDataOverlay(
-    svgWithEditableTexts,
-    presetId,
-    {
-      clientName: values.clientName,
-      powerKwp: values.powerKwp,
-      cityState: values.cityState,
-      date: values.date,
-      validityText: values.validityText,
-    },
-    theme.current,
-  );
 }

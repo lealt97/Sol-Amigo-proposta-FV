@@ -3,13 +3,17 @@ import { proposalEventService } from './proposalEventService';
 import { Proposal } from '../types/proposal';
 import { ProposalFormValues } from '../lib/validations/proposal.schema';
 import { calcularSistemaSolar } from '../lib/calculations/solar';
-
 import { calcularPrecoProposta } from '../lib/calculations/pricing';
 
 const formatNumber = (val: any) => {
   if (val === '' || val === null || val === undefined) return null;
   const parsed = Number(val);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeSystemType = (value?: string | null) => {
+  if (value === 'hybrid' || value === 'off_grid') return value;
+  return 'on_grid';
 };
 
 const profileSelect = 'company_name, logo_url, seller_name, seller_phone, seller_email, seller_signature_url, website, company_email, default_validity_days, default_margin_percentage';
@@ -64,6 +68,32 @@ const isDuplicateCodeError = (error: any) => {
   return error?.code === '23505' || String(error?.message || '').toLowerCase().includes('duplicate');
 };
 
+const buildPricing = (proposal: Partial<ProposalFormValues>) => {
+  const otherCosts = resolveOtherCosts(proposal);
+  const pricing = calcularPrecoProposta({
+    kit_cost: formatNumber(proposal.kit_cost) || 0,
+    labor_cost: formatNumber(proposal.labor_cost) || 0,
+    fixed_costs: formatNumber(proposal.fixed_costs) || 0,
+    freight_cost: formatNumber(proposal.freight_cost) || 0,
+    taxes: formatNumber(proposal.taxes) || 0,
+    commission: formatNumber(proposal.commission) || 0,
+    other_costs: otherCosts,
+    margin_percentage: formatNumber(proposal.margin_percentage) || 0,
+    discount_percentage: formatNumber(proposal.discount_percentage) || 0,
+  });
+
+  return { pricing, otherCosts };
+};
+
+const buildHybridData = (proposal: Partial<ProposalFormValues>) => ({
+  system_type: normalizeSystemType(proposal.system_type),
+  battery_capacity_kwh: formatNumber(proposal.battery_capacity_kwh),
+  usable_battery_capacity_kwh: formatNumber(proposal.usable_battery_capacity_kwh),
+  backup_power_kw: formatNumber(proposal.backup_power_kw),
+  autonomy_hours: formatNumber(proposal.autonomy_hours),
+  essential_loads_description: proposal.essential_loads_description || null,
+});
+
 export const proposalService = {
   async getProposals() {
     const { data, error } = await supabase
@@ -94,18 +124,7 @@ export const proposalService = {
   },
 
   async createProposal(proposal: ProposalFormValues, userId: string, isDuplicate = false) {
-    const otherCosts = resolveOtherCosts(proposal);
-    const pricing = calcularPrecoProposta({
-      kit_cost: formatNumber(proposal.kit_cost) || 0,
-      labor_cost: formatNumber(proposal.labor_cost) || 0,
-      fixed_costs: formatNumber(proposal.fixed_costs) || 0,
-      freight_cost: formatNumber(proposal.freight_cost) || 0,
-      taxes: formatNumber(proposal.taxes) || 0,
-      commission: formatNumber(proposal.commission) || 0,
-      other_costs: otherCosts,
-      margin_percentage: formatNumber(proposal.margin_percentage) || 0,
-      discount_percentage: formatNumber(proposal.discount_percentage) || 0,
-    });
+    const { pricing, otherCosts } = buildPricing(proposal);
 
     const formattedData = {
       user_id: userId,
@@ -113,7 +132,7 @@ export const proposalService = {
       title: proposal.title || 'Nova Proposta',
       status: 'pending',
       consumption_source: proposal.consumption_source,
-      
+      ...buildHybridData(proposal),
       estimated_daily_consumption: formatNumber(proposal.estimated_daily_consumption),
       monthly_consumption_kwh: formatNumber(proposal.monthly_consumption_kwh),
       bill_amount: formatNumber(proposal.bill_amount),
@@ -162,15 +181,12 @@ export const proposalService = {
       }
 
       lastError = error;
-      if (!isDuplicateCodeError(error)) {
-        break;
-      }
+      if (!isDuplicateCodeError(error)) break;
     }
       
     if (lastError) throw lastError;
     if (!data) throw new Error('Erro ao criar proposta.');
     
-    // Calcula e salva os dados solares
     await this.upsertSolarCalculation(data.id, proposal, pricing.final_price);
     
     if (proposal.loads) {
@@ -178,8 +194,8 @@ export const proposalService = {
     }
     
     await proposalEventService.logEvent(
-      data.id, 
-      isDuplicate ? 'duplicated' : 'created', 
+      data.id,
+      isDuplicate ? 'duplicated' : 'created',
       isDuplicate ? 'Proposta duplicada' : 'Proposta criada'
     );
                 
@@ -187,28 +203,18 @@ export const proposalService = {
   },
 
   async updateProposal(id: string, proposal: Partial<ProposalFormValues>) {
-    const otherCosts = resolveOtherCosts(proposal);
-    const pricing = calcularPrecoProposta({
-      kit_cost: proposal.kit_cost !== undefined ? formatNumber(proposal.kit_cost) || 0 : 0,
-      labor_cost: proposal.labor_cost !== undefined ? formatNumber(proposal.labor_cost) || 0 : 0,
-      fixed_costs: proposal.fixed_costs !== undefined ? formatNumber(proposal.fixed_costs) || 0 : 0,
-      freight_cost: proposal.freight_cost !== undefined ? formatNumber(proposal.freight_cost) || 0 : 0,
-      taxes: proposal.taxes !== undefined ? formatNumber(proposal.taxes) || 0 : 0,
-      commission: proposal.commission !== undefined ? formatNumber(proposal.commission) || 0 : 0,
-      other_costs: otherCosts,
-      margin_percentage: proposal.margin_percentage !== undefined ? formatNumber(proposal.margin_percentage) || 0 : 0,
-      discount_percentage: proposal.discount_percentage !== undefined ? formatNumber(proposal.discount_percentage) || 0 : 0,
-    });
-    
-    // Note: To calculate correctly in updates, we'd need the existing values if partial is passed,
-    // but the frontend wizard passes all form values on save.
-    // For safety, assuming the frontend provides the entire form values.
-    
+    const { pricing, otherCosts } = buildPricing(proposal);
     const formattedData: any = {};
+
     if (proposal.client_id !== undefined) formattedData.client_id = proposal.client_id;
     if (proposal.title !== undefined) formattedData.title = proposal.title;
     if (proposal.consumption_source !== undefined) formattedData.consumption_source = proposal.consumption_source;
-    
+    if (proposal.system_type !== undefined) formattedData.system_type = normalizeSystemType(proposal.system_type);
+    if (proposal.battery_capacity_kwh !== undefined) formattedData.battery_capacity_kwh = formatNumber(proposal.battery_capacity_kwh);
+    if (proposal.usable_battery_capacity_kwh !== undefined) formattedData.usable_battery_capacity_kwh = formatNumber(proposal.usable_battery_capacity_kwh);
+    if (proposal.backup_power_kw !== undefined) formattedData.backup_power_kw = formatNumber(proposal.backup_power_kw);
+    if (proposal.autonomy_hours !== undefined) formattedData.autonomy_hours = formatNumber(proposal.autonomy_hours);
+    if (proposal.essential_loads_description !== undefined) formattedData.essential_loads_description = proposal.essential_loads_description || null;
     if (proposal.estimated_daily_consumption !== undefined) formattedData.estimated_daily_consumption = formatNumber(proposal.estimated_daily_consumption);
     if (proposal.monthly_consumption_kwh !== undefined) formattedData.monthly_consumption_kwh = formatNumber(proposal.monthly_consumption_kwh);
     if (proposal.bill_amount !== undefined) formattedData.bill_amount = formatNumber(proposal.bill_amount);
@@ -231,14 +237,12 @@ export const proposalService = {
     if (proposal.discount_percentage !== undefined) formattedData.discount_percentage = formatNumber(proposal.discount_percentage);
     if (proposal.energy_tariff !== undefined) formattedData.energy_tariff = formatNumber(proposal.energy_tariff);
 
-    // Only update pricing if any cost/margin changed
     if (
-      proposal.kit_cost !== undefined || proposal.labor_cost !== undefined || 
-      proposal.fixed_costs !== undefined || proposal.freight_cost !== undefined || 
-      proposal.taxes !== undefined || proposal.commission !== undefined || 
+      proposal.kit_cost !== undefined || proposal.labor_cost !== undefined ||
+      proposal.fixed_costs !== undefined || proposal.freight_cost !== undefined ||
+      proposal.taxes !== undefined || proposal.commission !== undefined ||
       proposal.other_costs !== undefined || proposal.additional_costs !== undefined ||
-      proposal.margin_percentage !== undefined || 
-      proposal.discount_percentage !== undefined
+      proposal.margin_percentage !== undefined || proposal.discount_percentage !== undefined
     ) {
       formattedData.total_cost = pricing.total_cost;
       formattedData.gross_price = pricing.gross_price;
@@ -326,7 +330,6 @@ export const proposalService = {
       } : {})
     };
 
-    // check if it exists
     const { data: existing } = await supabase
       .from('solar_system_calculations')
       .select('id')
@@ -334,14 +337,9 @@ export const proposalService = {
       .single();
 
     if (existing) {
-      await supabase
-        .from('solar_system_calculations')
-        .update(solarData)
-        .eq('id', existing.id);
+      await supabase.from('solar_system_calculations').update(solarData).eq('id', existing.id);
     } else {
-      await supabase
-        .from('solar_system_calculations')
-        .insert([solarData]);
+      await supabase.from('solar_system_calculations').insert([solarData]);
     }
   },
 
@@ -363,16 +361,11 @@ export const proposalService = {
   },
 
   async deleteProposal(id: string) {
-    // Manually delete related records first to prevent foreign key constraint errors
     await supabase.from('proposal_events').delete().eq('proposal_id', id);
     await supabase.from('solar_system_calculations').delete().eq('proposal_id', id);
     await supabase.from('proposal_loads').delete().eq('proposal_id', id);
 
-    const { error } = await supabase
-      .from('proposals')
-      .delete()
-      .eq('id', id);
-      
+    const { error } = await supabase.from('proposals').delete().eq('id', id);
     if (error) throw error;
   }
 };

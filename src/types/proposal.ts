@@ -10,8 +10,10 @@ export interface Proposal {
   code: string | null;
   title: string | null;
   status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'pending' | 'approved' | 'expired';
+  revision?: number;
   system_type: SolarSystemType | null;
   consumption_source: 'average' | 'historical' | 'load_survey' | null;
+  history?: Array<string | number> | null;
   estimated_daily_consumption: number | null;
   monthly_consumption_kwh: number | null;
   bill_amount: number | null;
@@ -60,7 +62,6 @@ export interface Proposal {
   created_at: string;
   updated_at: string;
 
-  // Relações
   client?: {
     name: string;
     document: string | null;

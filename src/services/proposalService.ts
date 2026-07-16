@@ -18,11 +18,18 @@ function enqueueProposalMutation<T>(proposalId: string, task: () => Promise<T>):
 
   proposalMutationQueues.set(proposalId, next);
 
-  void next.finally(() => {
-    if (proposalMutationQueues.get(proposalId) === next) {
-      proposalMutationQueues.delete(proposalId);
-    }
-  });
+  void next.then(
+    () => {
+      if (proposalMutationQueues.get(proposalId) === next) {
+        proposalMutationQueues.delete(proposalId);
+      }
+    },
+    () => {
+      if (proposalMutationQueues.get(proposalId) === next) {
+        proposalMutationQueues.delete(proposalId);
+      }
+    },
+  );
 
   return next;
 }
@@ -83,7 +90,7 @@ function proposalToFormValues(proposal: Proposal): ProposalFormValues {
     client_id: proposal.client_id,
     title: proposal.title || '',
     consumption_source: proposal.consumption_source || 'average',
-    history: ((proposal as any).history || []) as Array<string | number>,
+    history: (proposal.history || []) as Array<string | number>,
     estimated_daily_consumption: proposal.estimated_daily_consumption ?? '',
     monthly_consumption_kwh: proposal.monthly_consumption_kwh ?? '',
     bill_amount: proposal.bill_amount ?? '',
@@ -129,6 +136,16 @@ function proposalToFormValues(proposal: Proposal): ProposalFormValues {
     margin_percentage: proposal.margin_percentage ?? '',
     discount_percentage: proposal.discount_percentage ?? '',
   };
+}
+
+function normalizeCreateValues(proposal: ProposalFormValues): ProposalFormValues {
+  const possiblePersistedProposal = proposal as ProposalFormValues & Partial<Proposal>;
+
+  if ('user_id' in possiblePersistedProposal || 'solar' in possiblePersistedProposal) {
+    return proposalToFormValues(possiblePersistedProposal as Proposal);
+  }
+
+  return proposal;
 }
 
 function mergeProposalValues(
@@ -339,10 +356,12 @@ export const proposalService = {
     _userId: string,
     isDuplicate = false,
   ) {
+    const values = normalizeCreateValues(proposal);
+
     return persistProposalBundle(
       null,
       null,
-      proposal,
+      values,
       isDuplicate ? 'duplicated' : 'created',
       isDuplicate ? 'Proposta duplicada' : 'Proposta criada',
     );

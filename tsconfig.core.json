@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": false,
+    "types": ["node"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": [
+    "src/lib/calculations/**/*.ts",
+    "src/types/solar.ts",
+    "src/types/pricing.ts",
+    "src/types/payback.ts",
+    "src/types/loadSurvey.ts",
+    "tests/**/*.ts"
+  ]
+}

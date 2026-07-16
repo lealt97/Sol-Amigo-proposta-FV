@@ -75,6 +75,28 @@ function svgToPngDataUrl(svgText: string): Promise<string> {
   });
 }
 
+function formatPowerKwp(proposal: any) {
+  const value = Number(
+    proposal.solar?.installed_power_kwp ||
+    proposal.solar_kit_snapshot?.kit_power_kwp ||
+    proposal.solar?.required_power_kwp ||
+    0
+  );
+
+  return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWp`;
+}
+
+function resolveCityState(proposal: any) {
+  const city = proposal.client?.city || proposal.client?.cidade || '';
+  const state = proposal.client?.state || proposal.client?.uf || '';
+  return [city, state].filter(Boolean).join(' - ') || 'Localização a confirmar';
+}
+
+function resolveValidityText(proposal: any) {
+  const validityDays = Number(proposal.profile?.default_validity_days || proposal.validity_days || 7);
+  return `validade: ${validityDays} dias`;
+}
+
 export async function generateSvgCoverImage(
   model: PdfUserModel,
   proposal: any
@@ -88,6 +110,7 @@ export async function generateSvgCoverImage(
     const activeLogo = extractActiveLogo(resolvedRawLogo);
     const logoUrl = await urlToBase64(activeLogo);
     const coverImageUrl = await urlToBase64(model.cover_image_url);
+    const generationDate = new Date().toLocaleDateString('pt-BR');
 
     const finalSvg = buildCoverSvg(
       svgSource,
@@ -97,15 +120,17 @@ export async function generateSvgCoverImage(
       },
       {
         clientName: proposal.client?.name || 'Cliente',
-        powerKwp: `${(proposal.solar?.installed_power_kwp || 0).toFixed(2)} kWp`,
-        cityState: `${proposal.client?.city || ''} - ${proposal.client?.state || ''}`,
-        date: new Date().toLocaleDateString('pt-BR'),
+        powerKwp: formatPowerKwp(proposal),
+        cityState: resolveCityState(proposal),
+        date: generationDate,
+        validityText: resolveValidityText(proposal),
         logoUrl,
         coverImageUrl,
         logoTransform: model.logo_transform,
         coverImageTransform: model.cover_image_transform,
       },
-      model.id
+      model.id,
+      preset.id,
     );
 
     return await svgToPngDataUrl(finalSvg);

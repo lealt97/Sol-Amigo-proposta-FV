@@ -5,9 +5,8 @@ import { Proposal } from '../../types/proposal';
 import { PdfUserModel } from '../../types/pdfModels';
 import { supabase } from '../supabase/client';
 import { pdfModelService } from '../../services/pdfModelService';
+import { createOwnerProposalPdfUrl } from './proposalPdfStorage';
 import { generateSvgCoverImage } from './utils/svgToImage';
-
-const OWNER_PDF_URL_TTL_SECONDS = 60 * 60;
 
 async function resolvePdfModel(
   proposal: Proposal,
@@ -69,19 +68,6 @@ async function enrichProposalForPdf(proposal: Proposal): Promise<Proposal> {
   }
 
   return enrichedProposal as Proposal;
-}
-
-export async function createOwnerProposalPdfUrl(storagePath: string): Promise<string | null> {
-  const { data, error } = await supabase.storage
-    .from('proposals')
-    .createSignedUrl(storagePath, OWNER_PDF_URL_TTL_SECONDS);
-
-  if (error || !data?.signedUrl) {
-    console.error('Error creating signed owner PDF URL:', error);
-    return null;
-  }
-
-  return data.signedUrl;
 }
 
 export async function generateAndUploadPdf(

@@ -172,6 +172,28 @@ function isVectorTextLeaf(element: Element) {
   return supportedLeaf && element.children.length === 0 && Boolean(explicitFieldForElement(element));
 }
 
+function isVectorTextGroup(element: Element) {
+  if (element.tagName.toLowerCase() !== 'g') return false;
+  if (!explicitFieldForElement(element)) return false;
+  if (element.children.length === 0) return false;
+
+  // Some Figma exports wrap one vectorized word/value in a <g>, as happens
+  // with the power placeholders on covers 06 and 08. Accept only a flat group
+  // made exclusively of glyph-like vector leaves. This prevents icon groups,
+  // mixed components and containers from ever being hidden.
+  return Array.from(element.children).every((child) => {
+    const tagName = child.tagName.toLowerCase();
+    return (
+      (tagName === 'path' || tagName === 'polygon' || tagName === 'polyline')
+      && child.children.length === 0
+    );
+  });
+}
+
+function isVectorTextPlaceholder(element: Element) {
+  return isVectorTextLeaf(element) || isVectorTextGroup(element);
+}
+
 function isDynamicSlot(element: Element) {
   if (element.tagName.toLowerCase() !== 'rect') return false;
   if (!explicitFieldForElement(element)) return false;
@@ -301,22 +323,21 @@ function directRectBounds(element: Element): Bounds | null {
   return { x, y, width, height };
 }
 
+function renderPriority(element: Element) {
+  if (isVectorTextPlaceholder(element)) return 2;
+  if (isDynamicSlot(element)) return 1;
+  return 0;
+}
+
 function selectRenderableSlots(slots: BoundElement[], handledFields: Set<CoverField>) {
   const selected = new Map<CoverField, BoundElement>();
 
   slots.forEach((slot) => {
     if (handledFields.has(slot.field)) return;
-    if (!isVectorTextLeaf(slot.element) && !isDynamicSlot(slot.element)) return;
+    if (!isVectorTextPlaceholder(slot.element) && !isDynamicSlot(slot.element)) return;
 
     const current = selected.get(slot.field);
-    if (!current) {
-      selected.set(slot.field, slot);
-      return;
-    }
-
-    // Preserve the original vector placeholder when it exists. The invisible
-    // rectangle is the fallback used by the cleaned SVG templates.
-    if (isVectorTextLeaf(slot.element) && isDynamicSlot(current.element)) {
+    if (!current || renderPriority(slot.element) > renderPriority(current.element)) {
       selected.set(slot.field, slot);
     }
   });
@@ -386,12 +407,12 @@ function renderNonTextSlots(
       text.textContent = value;
 
       // Generated text is appended to the SVG root so it does not inherit the
-      // opacity/display of the invisible dynamic_slots group.
+      // opacity/display of an invisible dynamic_slots group.
       doc.documentElement.appendChild(text);
 
-      // Only the exact vector glyph placeholder is hidden. Slot rectangles,
-      // groups, icons and static labels remain untouched.
-      if (isVectorTextLeaf(element)) {
+      // Hide only a placeholder that was explicitly identified by its own ID
+      // or data-bind. Flat text groups are allowed; icon/mixed groups are not.
+      if (isVectorTextPlaceholder(element)) {
         element.setAttribute('display', 'none');
       }
 

@@ -72,26 +72,27 @@ A aplicação será aberta por padrão em `http://localhost:3000`.
 
 ```bash
 npm run dev             # servidor local
-npm run typecheck       # verificação TypeScript da aplicação
-npm run typecheck:core  # verificação estrita dos cálculos e testes
+npm run typecheck       # auditoria TypeScript completa da aplicação
+npm run typecheck:core  # verificação estrita do núcleo e dos testes
 npm run test            # testes automatizados do núcleo financeiro e solar
-npm run build           # TypeScript + testes + build de produção
+npm run build           # núcleo estrito + testes + build de produção
 npm run build:app       # somente o build Vite, sem as validações
 npm run check           # alias do build protegido
 npm run preview         # visualização do build
 ```
 
-O comando `npm run build` é propositalmente protegido. O Railway e outros ambientes que usam o script padrão de build só publicam a aplicação depois que as verificações TypeScript e os testes terminam com sucesso.
+O comando `npm run build` é propositalmente protegido. O Railway e outros ambientes que usam o script padrão de build só publicam a aplicação depois que o núcleo estrito e os testes terminam com sucesso.
+
+A auditoria completa `npm run typecheck` continua disponível para a redução gradual dos erros TypeScript legados. Ela será promovida a bloqueio obrigatório quando o restante da aplicação estiver limpo.
 
 ## Qualidade e integração contínua
 
 O workflow `.github/workflows/quality.yml` executa automaticamente na branch `main` e em pull requests:
 
 1. `npm ci`;
-2. verificação TypeScript completa;
-3. verificação TypeScript estrita do núcleo;
-4. testes automatizados;
-5. build de produção.
+2. verificação TypeScript estrita do núcleo;
+3. testes automatizados;
+4. build de produção.
 
 Os testes atuais cobrem dimensionamento solar, média de consumo, preço e margem, payback e levantamento de cargas.
 

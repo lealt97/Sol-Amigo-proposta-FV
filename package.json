@@ -2,13 +2,21 @@
   "name": "react-example",
   "private": true,
   "version": "0.0.0",
+  "description": "SaaS Sol Amigo para dimensionamento e geração de propostas comerciais fotovoltaicas.",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:core": "tsc --noEmit -p tsconfig.core.json",
+    "lint": "npm run typecheck",
+    "test": "tsx --test tests/calculations.test.ts",
+    "check": "npm run lint && npm run typecheck:core && npm run test && npm run build"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

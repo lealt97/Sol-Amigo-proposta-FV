@@ -1,13 +1,35 @@
 import { supabase } from '../lib/supabase/client';
-import { proposalEventService } from './proposalEventService';
 import { Proposal } from '../types/proposal';
 import { ProposalFormValues } from '../lib/validations/proposal.schema';
 import { calcularSistemaSolar } from '../lib/calculations/solar';
 import { calcularPrecoProposta } from '../lib/calculations/pricing';
+import { calcularPayback } from '../lib/calculations/payback';
 
-const formatNumber = (val: any) => {
-  if (val === '' || val === null || val === undefined) return null;
-  const parsed = Number(val);
+const profileSelect = 'company_name, logo_url, seller_name, seller_phone, seller_email, seller_signature_url, website, company_email, default_validity_days, default_margin_percentage';
+const clientSelect = 'name, document, email, phone, city, state';
+
+const proposalMutationQueues = new Map<string, Promise<unknown>>();
+
+function enqueueProposalMutation<T>(proposalId: string, task: () => Promise<T>): Promise<T> {
+  const previous = proposalMutationQueues.get(proposalId) || Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(task);
+
+  proposalMutationQueues.set(proposalId, next);
+
+  void next.finally(() => {
+    if (proposalMutationQueues.get(proposalId) === next) {
+      proposalMutationQueues.delete(proposalId);
+    }
+  });
+
+  return next;
+}
+
+const formatNumber = (value: unknown): number | null => {
+  if (value === '' || value === null || value === undefined) return null;
+  const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
 
@@ -23,9 +45,6 @@ const buildSecurePdfUrl = (publicToken?: string | null) => {
   return `${supabaseUrl}/functions/v1/public-proposal-pdf?token=${encodeURIComponent(publicToken)}`;
 };
 
-const profileSelect = 'company_name, logo_url, seller_name, seller_phone, seller_email, seller_signature_url, website, company_email, default_validity_days, default_margin_percentage';
-const clientSelect = 'name, document, email, phone, city, state';
-
 const getAdditionalCostsTotal = (proposal: Partial<ProposalFormValues>) => {
   return (proposal.additional_costs || []).reduce((sum, cost) => {
     const amount = formatNumber(cost.amount) || 0;
@@ -37,43 +56,6 @@ const resolveOtherCosts = (proposal: Partial<ProposalFormValues>) => {
   const additionalCostsTotal = getAdditionalCostsTotal(proposal);
   if (additionalCostsTotal > 0) return Number(additionalCostsTotal.toFixed(2));
   return formatNumber(proposal.other_costs) || 0;
-};
-
-const generateFallbackProposalCode = () => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID().slice(0, 8).toUpperCase()
-    : Math.random().toString(36).slice(2, 10).toUpperCase();
-
-  return `FV-${year}${month}${day}-${random}`;
-};
-
-const generateProposalCode = async (userId: string, attempt = 0) => {
-  const currentYear = new Date().getFullYear();
-  const startOfYear = `${currentYear}-01-01T00:00:00.000Z`;
-  const startOfNextYear = `${currentYear + 1}-01-01T00:00:00.000Z`;
-
-  const { count, error } = await supabase
-    .from('proposals')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('created_at', startOfYear)
-    .lt('created_at', startOfNextYear);
-
-  if (error) {
-    console.error('Error generating proposal code:', error);
-    return generateFallbackProposalCode();
-  }
-
-  const sequence = (count || 0) + 1 + attempt;
-  return `FV-${currentYear}-${String(sequence).padStart(4, '0')}`;
-};
-
-const isDuplicateCodeError = (error: any) => {
-  return error?.code === '23505' || String(error?.message || '').toLowerCase().includes('duplicate');
 };
 
 const buildPricing = (proposal: Partial<ProposalFormValues>) => {
@@ -93,14 +75,230 @@ const buildPricing = (proposal: Partial<ProposalFormValues>) => {
   return { pricing, otherCosts };
 };
 
-const buildHybridData = (proposal: Partial<ProposalFormValues>) => ({
-  system_type: normalizeSystemType(proposal.system_type),
-  battery_capacity_kwh: formatNumber(proposal.battery_capacity_kwh),
-  usable_battery_capacity_kwh: formatNumber(proposal.usable_battery_capacity_kwh),
-  backup_power_kw: formatNumber(proposal.backup_power_kw),
-  autonomy_hours: formatNumber(proposal.autonomy_hours),
-  essential_loads_description: proposal.essential_loads_description || null,
-});
+function proposalToFormValues(proposal: Proposal): ProposalFormValues {
+  const solar = proposal.solar;
+  const otherCosts = formatNumber(proposal.other_costs) || 0;
+
+  return {
+    client_id: proposal.client_id,
+    title: proposal.title || '',
+    consumption_source: proposal.consumption_source || 'average',
+    history: ((proposal as any).history || []) as Array<string | number>,
+    estimated_daily_consumption: proposal.estimated_daily_consumption ?? '',
+    monthly_consumption_kwh: proposal.monthly_consumption_kwh ?? '',
+    bill_amount: proposal.bill_amount ?? '',
+    loads: (proposal.loads || []).map((load) => ({
+      id: load.id,
+      equipment_name: load.equipment_name,
+      power_watts: load.power_watts,
+      quantity: load.quantity,
+      hours_per_day: load.hours_per_day,
+      daily_consumption: load.daily_consumption,
+    })),
+    system_type: proposal.system_type || 'on_grid',
+    cep: solar?.cep || '',
+    hsp: solar?.hsp ?? '',
+    panel_power_w: solar?.panel_power_w ?? '',
+    yield_factor: solar?.yield_factor ?? 0.8,
+    generation_target_percent: solar?.generation_target_percent ?? 100,
+    oversizing: solar?.oversizing ?? 1.2,
+    energy_tariff: solar?.energy_tariff ?? proposal.energy_tariff ?? '',
+    battery_capacity_kwh: proposal.battery_capacity_kwh ?? '',
+    usable_battery_capacity_kwh: proposal.usable_battery_capacity_kwh ?? '',
+    backup_power_kw: proposal.backup_power_kw ?? '',
+    autonomy_hours: proposal.autonomy_hours ?? '',
+    essential_loads_description: proposal.essential_loads_description || '',
+    selected_solar_kit_id: proposal.selected_solar_kit_id || '',
+    solar_kit_snapshot: proposal.solar_kit_snapshot || null,
+    roof_type: proposal.roof_type || '',
+    roof_area_m2: proposal.roof_area_m2 ?? '',
+    roof_image_url: proposal.roof_image_url || '',
+    module_width_m: proposal.module_width_m ?? '',
+    module_height_m: proposal.module_height_m ?? '',
+    roof_layout_json: proposal.roof_layout_json || undefined,
+    kit_cost: proposal.kit_cost ?? '',
+    labor_cost: proposal.labor_cost ?? '',
+    fixed_costs: proposal.fixed_costs ?? '',
+    freight_cost: proposal.freight_cost ?? '',
+    taxes: proposal.taxes ?? '',
+    commission: proposal.commission ?? '',
+    other_costs: otherCosts || '',
+    additional_costs: otherCosts > 0
+      ? [{ description: 'Custos adicionais', amount: otherCosts }]
+      : [],
+    margin_percentage: proposal.margin_percentage ?? '',
+    discount_percentage: proposal.discount_percentage ?? '',
+  };
+}
+
+function mergeProposalValues(
+  base: ProposalFormValues,
+  updates: Partial<ProposalFormValues>,
+): ProposalFormValues {
+  return {
+    ...base,
+    ...updates,
+    history: updates.history !== undefined ? updates.history : base.history,
+    loads: updates.loads !== undefined ? updates.loads : base.loads,
+    additional_costs: updates.additional_costs !== undefined
+      ? updates.additional_costs
+      : base.additional_costs,
+    solar_kit_snapshot: updates.solar_kit_snapshot !== undefined
+      ? updates.solar_kit_snapshot
+      : base.solar_kit_snapshot,
+    roof_layout_json: updates.roof_layout_json !== undefined
+      ? updates.roof_layout_json
+      : base.roof_layout_json,
+  };
+}
+
+function buildProposalPayload(values: ProposalFormValues) {
+  const { pricing, otherCosts } = buildPricing(values);
+
+  return {
+    client_id: values.client_id,
+    title: values.title || 'Nova Proposta',
+    consumption_source: values.consumption_source || 'average',
+    history: values.history || [],
+    estimated_daily_consumption: formatNumber(values.estimated_daily_consumption),
+    monthly_consumption_kwh: formatNumber(values.monthly_consumption_kwh),
+    bill_amount: formatNumber(values.bill_amount),
+    energy_tariff: formatNumber(values.energy_tariff),
+    system_type: normalizeSystemType(values.system_type),
+    battery_capacity_kwh: formatNumber(values.battery_capacity_kwh),
+    usable_battery_capacity_kwh: formatNumber(values.usable_battery_capacity_kwh),
+    backup_power_kw: formatNumber(values.backup_power_kw),
+    autonomy_hours: formatNumber(values.autonomy_hours),
+    essential_loads_description: values.essential_loads_description || null,
+    selected_solar_kit_id: values.selected_solar_kit_id || null,
+    solar_kit_snapshot: values.solar_kit_snapshot || null,
+    roof_type: values.roof_type || null,
+    roof_area_m2: formatNumber(values.roof_area_m2),
+    roof_image_url: values.roof_image_url || null,
+    module_width_m: formatNumber(values.module_width_m),
+    module_height_m: formatNumber(values.module_height_m),
+    roof_layout_json: values.roof_layout_json || null,
+    kit_cost: formatNumber(values.kit_cost),
+    labor_cost: formatNumber(values.labor_cost),
+    fixed_costs: formatNumber(values.fixed_costs),
+    freight_cost: formatNumber(values.freight_cost),
+    taxes: formatNumber(values.taxes),
+    commission: formatNumber(values.commission),
+    other_costs: otherCosts || null,
+    margin_percentage: formatNumber(values.margin_percentage),
+    discount_percentage: formatNumber(values.discount_percentage),
+    total_cost: pricing.total_cost,
+    gross_price: pricing.gross_price,
+    discount_value: pricing.discount_value,
+    final_price: pricing.final_price,
+    estimated_profit: pricing.estimated_profit,
+    real_margin_percentage: pricing.real_margin_percentage,
+    markup_percentage: pricing.markup_percentage,
+  };
+}
+
+function buildSolarPayload(values: ProposalFormValues, finalPrice: number) {
+  const calc = calcularSistemaSolar({
+    hsp: formatNumber(values.hsp) || 0,
+    panel_power_w: formatNumber(values.panel_power_w) || 0,
+    yield_factor: formatNumber(values.yield_factor) || 0.8,
+    generation_target_percent: formatNumber(values.generation_target_percent) || 100,
+    oversizing: formatNumber(values.oversizing) || 1.2,
+    monthly_consumption_kwh: formatNumber(values.monthly_consumption_kwh) || undefined,
+    current_bill_value: formatNumber(values.bill_amount) || undefined,
+    energy_tariff: formatNumber(values.energy_tariff) || undefined,
+  });
+
+  const payback = calc && finalPrice > 0
+    ? calcularPayback({
+        investimentoTotal: finalPrice,
+        economiaMensal: calc.monthly_savings,
+        economiaAnual: calc.annual_savings,
+      })
+    : null;
+
+  return {
+    cep: values.cep || null,
+    hsp: formatNumber(values.hsp),
+    panel_power_w: formatNumber(values.panel_power_w),
+    yield_factor: formatNumber(values.yield_factor) || 0.8,
+    generation_target_percent: formatNumber(values.generation_target_percent) || 100,
+    oversizing: formatNumber(values.oversizing) || 1.2,
+    history: values.history || [],
+    monthly_consumption_kwh: calc?.monthly_consumption_kwh ?? formatNumber(values.monthly_consumption_kwh),
+    projected_consumption_kwh: calc?.projected_consumption_kwh ?? null,
+    required_power_kwp: calc?.required_power_kwp ?? null,
+    panel_count: calc?.panel_count ?? null,
+    installed_power_kwp: calc?.installed_power_kwp ?? null,
+    estimated_monthly_generation_kwh: calc?.estimated_monthly_generation_kwh ?? null,
+    excess_kwh: calc?.excess_kwh ?? null,
+    excess_percentage: calc?.excess_percentage ?? null,
+    min_inverter_power_kw: calc?.min_inverter_power_kw ?? null,
+    current_bill_value: calc
+      ? calc.energy_tariff * calc.monthly_consumption_kwh
+      : formatNumber(values.bill_amount),
+    energy_tariff: calc?.energy_tariff ?? formatNumber(values.energy_tariff),
+    monthly_savings: calc?.monthly_savings ?? null,
+    annual_savings: calc?.annual_savings ?? null,
+    payback_years: payback?.paybackAnos ?? null,
+    payback_months: payback?.paybackMeses ?? null,
+    payback_formatted: payback?.paybackFormatado ?? null,
+    return_25_years: payback?.retorno25Anos ?? null,
+    net_savings_25_years: payback?.economiaLiquida25Anos ?? null,
+  };
+}
+
+function buildLoadsPayload(values: ProposalFormValues) {
+  return (values.loads || []).map((load) => {
+    const power = formatNumber(load.power_watts) || 0;
+    const quantity = formatNumber(load.quantity) || 0;
+    const hours = formatNumber(load.hours_per_day) || 0;
+    const calculatedDailyConsumption = (power * quantity * hours) / 1000;
+
+    return {
+      equipment_name: String(load.equipment_name || '').trim(),
+      power_watts: power,
+      quantity,
+      hours_per_day: hours,
+      daily_consumption: formatNumber(load.daily_consumption) ?? calculatedDailyConsumption,
+    };
+  });
+}
+
+function isRevisionConflict(error: any) {
+  return error?.code === '40001'
+    || String(error?.message || '').includes('alterada em outra sessão');
+}
+
+async function persistProposalBundle(
+  proposalId: string | null,
+  expectedRevision: number | null,
+  values: ProposalFormValues,
+  eventType: string | null,
+  eventDescription: string | null,
+): Promise<Proposal> {
+  const proposalPayload = buildProposalPayload(values);
+  const finalPrice = Number(proposalPayload.final_price || 0);
+  const solarPayload = buildSolarPayload(values, finalPrice);
+  const loadsPayload = buildLoadsPayload(values);
+
+  const { data, error } = await supabase.rpc('save_proposal_bundle', {
+    p_proposal_id: proposalId,
+    p_expected_revision: expectedRevision,
+    p_proposal: proposalPayload,
+    p_solar: solarPayload,
+    p_loads: loadsPayload,
+    p_event_type: eventType,
+    p_event_description: eventDescription,
+  });
+
+  if (error) throw error;
+
+  const saved = Array.isArray(data) ? data[0] : data;
+  if (!saved?.id) throw new Error('O banco não retornou a proposta salva.');
+
+  return saved as Proposal;
+}
 
 export const proposalService = {
   async getProposals() {
@@ -122,9 +320,9 @@ export const proposalService = {
 
     if (error) throw error;
 
-    if (data && data.solar && data.solar.length > 0) {
+    if (data && Array.isArray(data.solar) && data.solar.length > 0) {
       data.solar = data.solar[0];
-    } else {
+    } else if (Array.isArray(data?.solar)) {
       data.solar = null;
     }
 
@@ -136,249 +334,72 @@ export const proposalService = {
     return data as Proposal;
   },
 
-  async createProposal(proposal: ProposalFormValues, userId: string, isDuplicate = false) {
-    const { pricing, otherCosts } = buildPricing(proposal);
-
-    const formattedData = {
-      user_id: userId,
-      client_id: proposal.client_id,
-      title: proposal.title || 'Nova Proposta',
-      status: 'pending',
-      consumption_source: proposal.consumption_source,
-      ...buildHybridData(proposal),
-      estimated_daily_consumption: formatNumber(proposal.estimated_daily_consumption),
-      monthly_consumption_kwh: formatNumber(proposal.monthly_consumption_kwh),
-      bill_amount: formatNumber(proposal.bill_amount),
-      selected_solar_kit_id: proposal.selected_solar_kit_id || null,
-      solar_kit_snapshot: proposal.solar_kit_snapshot || null,
-      roof_type: proposal.roof_type || null,
-      roof_area_m2: formatNumber(proposal.roof_area_m2),
-      roof_image_url: proposal.roof_image_url || null,
-      module_width_m: formatNumber(proposal.module_width_m),
-      module_height_m: formatNumber(proposal.module_height_m),
-      roof_layout_json: proposal.roof_layout_json || null,
-      kit_cost: formatNumber(proposal.kit_cost),
-      labor_cost: formatNumber(proposal.labor_cost),
-      fixed_costs: formatNumber(proposal.fixed_costs),
-      freight_cost: formatNumber(proposal.freight_cost),
-      taxes: formatNumber(proposal.taxes),
-      commission: formatNumber(proposal.commission),
-      other_costs: otherCosts || null,
-      margin_percentage: formatNumber(proposal.margin_percentage),
-      discount_percentage: formatNumber(proposal.discount_percentage),
-      energy_tariff: formatNumber(proposal.energy_tariff),
-      total_cost: pricing.total_cost,
-      gross_price: pricing.gross_price,
-      discount_value: pricing.discount_value,
-      final_price: pricing.final_price,
-      estimated_profit: pricing.estimated_profit,
-      real_margin_percentage: pricing.real_margin_percentage,
-      markup_percentage: pricing.markup_percentage,
-    };
-
-    let data: any = null;
-    let lastError: any = null;
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const code = await generateProposalCode(userId, attempt);
-      const { data: insertedData, error } = await supabase
-        .from('proposals')
-        .insert([{ ...formattedData, code }])
-        .select()
-        .single();
-
-      if (!error) {
-        data = insertedData;
-        lastError = null;
-        break;
-      }
-
-      lastError = error;
-      if (!isDuplicateCodeError(error)) break;
-    }
-
-    if (lastError) throw lastError;
-    if (!data) throw new Error('Erro ao criar proposta.');
-
-    await this.upsertSolarCalculation(data.id, proposal, pricing.final_price);
-
-    if (proposal.loads) {
-      await this.upsertLoads(data.id, proposal.loads);
-    }
-
-    await proposalEventService.logEvent(
-      data.id,
+  async createProposal(
+    proposal: ProposalFormValues,
+    _userId: string,
+    isDuplicate = false,
+  ) {
+    return persistProposalBundle(
+      null,
+      null,
+      proposal,
       isDuplicate ? 'duplicated' : 'created',
-      isDuplicate ? 'Proposta duplicada' : 'Proposta criada'
+      isDuplicate ? 'Proposta duplicada' : 'Proposta criada',
     );
-
-    return data as Proposal;
   },
 
-  async updateProposal(id: string, proposal: Partial<ProposalFormValues>) {
-    const { pricing, otherCosts } = buildPricing(proposal);
-    const formattedData: any = {};
+  async updateProposal(id: string, updates: Partial<ProposalFormValues>) {
+    return enqueueProposalMutation(id, async () => {
+      let current = await this.getProposalById(id);
+      let merged = mergeProposalValues(proposalToFormValues(current), updates);
 
-    if (proposal.client_id !== undefined) formattedData.client_id = proposal.client_id;
-    if (proposal.title !== undefined) formattedData.title = proposal.title;
-    if (proposal.consumption_source !== undefined) formattedData.consumption_source = proposal.consumption_source;
-    if (proposal.system_type !== undefined) formattedData.system_type = normalizeSystemType(proposal.system_type);
-    if (proposal.battery_capacity_kwh !== undefined) formattedData.battery_capacity_kwh = formatNumber(proposal.battery_capacity_kwh);
-    if (proposal.usable_battery_capacity_kwh !== undefined) formattedData.usable_battery_capacity_kwh = formatNumber(proposal.usable_battery_capacity_kwh);
-    if (proposal.backup_power_kw !== undefined) formattedData.backup_power_kw = formatNumber(proposal.backup_power_kw);
-    if (proposal.autonomy_hours !== undefined) formattedData.autonomy_hours = formatNumber(proposal.autonomy_hours);
-    if (proposal.essential_loads_description !== undefined) formattedData.essential_loads_description = proposal.essential_loads_description || null;
-    if (proposal.estimated_daily_consumption !== undefined) formattedData.estimated_daily_consumption = formatNumber(proposal.estimated_daily_consumption);
-    if (proposal.monthly_consumption_kwh !== undefined) formattedData.monthly_consumption_kwh = formatNumber(proposal.monthly_consumption_kwh);
-    if (proposal.bill_amount !== undefined) formattedData.bill_amount = formatNumber(proposal.bill_amount);
-    if (proposal.selected_solar_kit_id !== undefined) formattedData.selected_solar_kit_id = proposal.selected_solar_kit_id || null;
-    if (proposal.solar_kit_snapshot !== undefined) formattedData.solar_kit_snapshot = proposal.solar_kit_snapshot || null;
-    if (proposal.roof_type !== undefined) formattedData.roof_type = proposal.roof_type || null;
-    if (proposal.roof_area_m2 !== undefined) formattedData.roof_area_m2 = formatNumber(proposal.roof_area_m2);
-    if (proposal.roof_image_url !== undefined) formattedData.roof_image_url = proposal.roof_image_url || null;
-    if (proposal.module_width_m !== undefined) formattedData.module_width_m = formatNumber(proposal.module_width_m);
-    if (proposal.module_height_m !== undefined) formattedData.module_height_m = formatNumber(proposal.module_height_m);
-    if (proposal.roof_layout_json !== undefined) formattedData.roof_layout_json = proposal.roof_layout_json || null;
-    if (proposal.kit_cost !== undefined) formattedData.kit_cost = formatNumber(proposal.kit_cost);
-    if (proposal.labor_cost !== undefined) formattedData.labor_cost = formatNumber(proposal.labor_cost);
-    if (proposal.fixed_costs !== undefined) formattedData.fixed_costs = formatNumber(proposal.fixed_costs);
-    if (proposal.freight_cost !== undefined) formattedData.freight_cost = formatNumber(proposal.freight_cost);
-    if (proposal.taxes !== undefined) formattedData.taxes = formatNumber(proposal.taxes);
-    if (proposal.commission !== undefined) formattedData.commission = formatNumber(proposal.commission);
-    if (proposal.other_costs !== undefined || proposal.additional_costs !== undefined) formattedData.other_costs = otherCosts || null;
-    if (proposal.margin_percentage !== undefined) formattedData.margin_percentage = formatNumber(proposal.margin_percentage);
-    if (proposal.discount_percentage !== undefined) formattedData.discount_percentage = formatNumber(proposal.discount_percentage);
-    if (proposal.energy_tariff !== undefined) formattedData.energy_tariff = formatNumber(proposal.energy_tariff);
+      try {
+        return await persistProposalBundle(
+          id,
+          current.revision ?? 0,
+          merged,
+          null,
+          null,
+        );
+      } catch (error: any) {
+        if (!isRevisionConflict(error)) throw error;
 
-    if (
-      proposal.kit_cost !== undefined || proposal.labor_cost !== undefined ||
-      proposal.fixed_costs !== undefined || proposal.freight_cost !== undefined ||
-      proposal.taxes !== undefined || proposal.commission !== undefined ||
-      proposal.other_costs !== undefined || proposal.additional_costs !== undefined ||
-      proposal.margin_percentage !== undefined || proposal.discount_percentage !== undefined
-    ) {
-      formattedData.total_cost = pricing.total_cost;
-      formattedData.gross_price = pricing.gross_price;
-      formattedData.discount_value = pricing.discount_value;
-      formattedData.final_price = pricing.final_price;
-      formattedData.estimated_profit = pricing.estimated_profit;
-      formattedData.real_margin_percentage = pricing.real_margin_percentage;
-      formattedData.markup_percentage = pricing.markup_percentage;
-    }
+        current = await this.getProposalById(id);
+        merged = mergeProposalValues(proposalToFormValues(current), updates);
 
-    const { data, error } = await supabase
-      .from('proposals')
-      .update(formattedData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    await this.upsertSolarCalculation(id, proposal, pricing.final_price);
-
-    if (proposal.loads) {
-      await this.upsertLoads(id, proposal.loads);
-    }
-    await proposalEventService.logEvent(id, 'updated', 'Proposta atualizada');
-
-    return data as Proposal;
-  },
-
-  async upsertSolarCalculation(proposalId: string, proposal: Partial<ProposalFormValues>, finalPrice: number) {
-    const calc = calcularSistemaSolar({
-      hsp: formatNumber(proposal.hsp) || 0,
-      panel_power_w: formatNumber(proposal.panel_power_w) || 0,
-      yield_factor: formatNumber(proposal.yield_factor) || 0.80,
-      generation_target_percent: formatNumber(proposal.generation_target_percent) || 100,
-      oversizing: formatNumber(proposal.oversizing) || 1.20,
-      monthly_consumption_kwh: formatNumber(proposal.monthly_consumption_kwh) || undefined,
-      current_bill_value: formatNumber(proposal.bill_amount) || undefined,
-      energy_tariff: formatNumber(proposal.energy_tariff) || undefined,
-    });
-
-    let paybackData = {};
-    if (calc) {
-      const { calcularPayback } = await import('../lib/calculations/payback');
-      const payback = calcularPayback({
-        investimentoTotal: finalPrice,
-        economiaMensal: calc.monthly_savings,
-        economiaAnual: calc.annual_savings,
-      });
-
-      if (payback) {
-        paybackData = {
-          payback_years: payback.paybackAnos,
-          payback_months: payback.paybackMeses,
-          payback_formatted: payback.paybackFormatado,
-          return_25_years: payback.retorno25Anos,
-          net_savings_25_years: payback.economiaLiquida25Anos,
-        };
+        return persistProposalBundle(
+          id,
+          current.revision ?? 0,
+          merged,
+          null,
+          null,
+        );
       }
-    }
-
-    const solarData = {
-      proposal_id: proposalId,
-      cep: proposal.cep || null,
-      hsp: formatNumber(proposal.hsp),
-      panel_power_w: formatNumber(proposal.panel_power_w),
-      yield_factor: formatNumber(proposal.yield_factor) || 0.80,
-      generation_target_percent: formatNumber(proposal.generation_target_percent) || 100,
-      oversizing: formatNumber(proposal.oversizing) || 1.20,
-      ...(calc ? {
-        monthly_consumption_kwh: calc.monthly_consumption_kwh,
-        projected_consumption_kwh: calc.projected_consumption_kwh,
-        required_power_kwp: calc.required_power_kwp,
-        panel_count: calc.panel_count,
-        installed_power_kwp: calc.installed_power_kwp,
-        estimated_monthly_generation_kwh: calc.estimated_monthly_generation_kwh,
-        excess_kwh: calc.excess_kwh,
-        excess_percentage: calc.excess_percentage,
-        min_inverter_power_kw: calc.min_inverter_power_kw,
-        current_bill_value: calc.energy_tariff * calc.monthly_consumption_kwh,
-        energy_tariff: calc.energy_tariff,
-        monthly_savings: calc.monthly_savings,
-        annual_savings: calc.annual_savings,
-        ...paybackData
-      } : {})
-    };
-
-    const { data: existing } = await supabase
-      .from('solar_system_calculations')
-      .select('id')
-      .eq('proposal_id', proposalId)
-      .single();
-
-    if (existing) {
-      await supabase.from('solar_system_calculations').update(solarData).eq('id', existing.id);
-    } else {
-      await supabase.from('solar_system_calculations').insert([solarData]);
-    }
+    });
   },
 
-  async upsertLoads(proposalId: string, loads: any[]) {
-    await supabase.from('proposal_loads').delete().eq('proposal_id', proposalId);
+  async duplicateProposal(sourceProposalId: string, userId: string) {
+    const source = await this.getProposalById(sourceProposalId);
+    const values = proposalToFormValues(source);
 
-    if (loads.length > 0) {
-      const loadsData = loads.map(load => ({
-        proposal_id: proposalId,
-        equipment_name: load.equipment_name,
-        power_watts: formatNumber(load.power_watts) || 0,
-        quantity: formatNumber(load.quantity) || 0,
-        hours_per_day: formatNumber(load.hours_per_day) || 0,
-        daily_consumption: formatNumber(load.daily_consumption) || 0,
-      }));
-
-      await supabase.from('proposal_loads').insert(loadsData);
-    }
+    return this.createProposal(
+      {
+        ...values,
+        title: `${source.title || 'Proposta'} (Cópia)`,
+      },
+      userId,
+      true,
+    );
   },
 
   async deleteProposal(id: string) {
-    await supabase.from('proposal_events').delete().eq('proposal_id', id);
-    await supabase.from('solar_system_calculations').delete().eq('proposal_id', id);
-    await supabase.from('proposal_loads').delete().eq('proposal_id', id);
+    return enqueueProposalMutation(id, async () => {
+      const { error } = await supabase
+        .from('proposals')
+        .delete()
+        .eq('id', id);
 
-    const { error } = await supabase.from('proposals').delete().eq('id', id);
-    if (error) throw error;
-  }
+      if (error) throw error;
+    });
+  },
 };

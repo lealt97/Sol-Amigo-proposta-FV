@@ -1,7 +1,7 @@
 import { SolarSystemCalculation } from './solar';
 import { ProposalLoad } from './loadSurvey';
 import { RoofLayoutData } from './roofLayout';
-import { SolarKitSnapshot } from './solarKit';
+import { SolarKitSnapshot, SolarSystemType } from './solarKit';
 
 export interface Proposal {
   id: string;
@@ -10,11 +10,17 @@ export interface Proposal {
   code: string | null;
   title: string | null;
   status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'pending' | 'approved' | 'expired';
+  system_type: SolarSystemType | null;
   consumption_source: 'average' | 'historical' | 'load_survey' | null;
   estimated_daily_consumption: number | null;
   monthly_consumption_kwh: number | null;
   bill_amount: number | null;
   energy_tariff: number | null;
+  battery_capacity_kwh: number | null;
+  usable_battery_capacity_kwh: number | null;
+  backup_power_kw: number | null;
+  autonomy_hours: number | null;
+  essential_loads_description: string | null;
   roof_type?: string | null;
   roof_area_m2?: number | null;
   roof_image_url?: string | null;

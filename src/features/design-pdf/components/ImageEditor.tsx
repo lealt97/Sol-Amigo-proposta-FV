@@ -1,6 +1,7 @@
 import { ChangeEvent } from 'react';
 import { Upload } from 'lucide-react';
 import { Label } from '../../../components/ui/Label';
+import { MAX_ACCOUNT_LOGOS } from '../../../utils/logoHelper';
 import { PdfUserModel, TransformConfig } from '../types/pdfDesignTypes';
 import { CoverPhotoFramingSelector } from './CoverPhotoFramingSelector';
 import { TransformControls } from './TransformControls';
@@ -26,7 +27,8 @@ export function ImageEditor({
   onTransformSet,
   onTransformReset,
 }: ImageEditorProps) {
-  const accountLogos = [...new Set([profileLogo, ...availableLogos].filter(Boolean) as string[])];
+  const accountLogos = [...new Set([profileLogo, ...availableLogos].filter(Boolean) as string[])]
+    .slice(0, MAX_ACCOUNT_LOGOS);
   const hasSelectedAccountLogo = Boolean(model.logo_url && accountLogos.includes(model.logo_url));
 
   return (
@@ -35,7 +37,7 @@ export function ImageEditor({
         <div>
           <Label className="text-slate-100 font-semibold">Logo da empresa</Label>
           <p className="text-xs text-slate-400 mt-1">
-            Escolha um dos logos cadastrados em Configurações da Conta &gt; Logo. O envio de logos é feito somente nessa área.
+            Escolha um dos até {MAX_ACCOUNT_LOGOS} logos cadastrados em Configurações da Conta &gt; Logo. O envio de logos é feito somente nessa área.
           </p>
         </div>
 
@@ -66,7 +68,7 @@ export function ImageEditor({
         ) : (
           <div className="rounded-lg border border-dashed border-brand-border bg-slate-950/30 p-4 text-center">
             <p className="text-sm font-medium text-slate-200">Nenhum logo cadastrado na conta.</p>
-            <p className="mt-1 text-xs text-slate-400">Cadastre até 3 logos para poder selecioná-los neste modelo.</p>
+            <p className="mt-1 text-xs text-slate-400">Cadastre até {MAX_ACCOUNT_LOGOS} logos para poder selecioná-los neste modelo.</p>
             <a href="/configuracoes?tab=logo" className="mt-3 inline-flex text-xs font-semibold text-brand-blue hover:underline">
               Abrir Configurações da Conta &gt; Logo
             </a>

@@ -42,7 +42,7 @@ export function Layout() {
               isSidebarExpanded ? "px-3" : "justify-center"
             }`}
           >
-            <AnimatedNavbarLogo className="h-10 w-10 shrink-0" />
+            <AnimatedNavbarLogo className={`${isSidebarExpanded ? "h-14 w-14" : "h-12 w-12"} shrink-0`} />
           </Link>
           <nav className="space-y-1">
             {navItems.map((item) => {

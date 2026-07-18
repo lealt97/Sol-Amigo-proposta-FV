@@ -7,6 +7,7 @@ import { Profile } from '../types/profile';
 import { DatabaseSetupAlert } from '../components/ui/DatabaseSetupAlert';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { MfaSettingsCard } from '../components/auth/MfaSettingsCard';
 import {
   Building2,
   Image as ImageIcon,
@@ -745,26 +746,11 @@ export function Configuracoes() {
 
           {activeTab === 'seguranca' && (
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Segurança</CardTitle>
-                  <CardDescription>Gerencie as configurações de segurança da sua conta.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border border-brand-border rounded-lg bg-brand-surface">
-                    <div>
-                      <h4 className="text-sm font-medium text-brand-dark">Autenticação em Duas Etapas (MFA)</h4>
-                      <p className="text-xs text-slate-500 mt-1">Adicione uma camada extra de segurança na sua conta exigindo um código no login.</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500">{profile.mfa_enabled ? 'Ativado' : 'Desativado'}</span>
-                      <button onClick={() => setProfile({ ...profile, mfa_enabled: !profile.mfa_enabled })} className={`w-10 h-6 rounded-full transition-colors relative flex items-center px-1 ${profile.mfa_enabled ? 'bg-brand-blue' : 'bg-slate-300'}`}>
-                        <div className={`w-4 h-4 rounded-full bg-brand-surface transition-transform ${profile.mfa_enabled ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <MfaSettingsCard
+                userId={user?.id || profile.id}
+                profile={profile}
+                onProfileChange={setProfile}
+              />
 
               <Card>
                 <CardHeader>

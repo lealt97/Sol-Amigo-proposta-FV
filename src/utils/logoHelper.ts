@@ -4,6 +4,10 @@ function uniqueLogos(logos: string[]) {
   return Array.from(new Set(logos.filter((logo) => typeof logo === 'string' && logo.trim())));
 }
 
+function limitAccountLogos(logos: string[]) {
+  return uniqueLogos(logos).slice(0, MAX_ACCOUNT_LOGOS);
+}
+
 export function extractActiveLogo(logoField: string | null): string | null {
   if (!logoField) return null;
   const trimmed = logoField.trim();
@@ -25,7 +29,7 @@ export function extractAllLogos(logoField: string | null): string[] {
     try {
       const parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed.logos)) {
-        return uniqueLogos(parsed.logos);
+        return limitAccountLogos(parsed.logos);
       }
       const active = parsed.activeLogo || parsed.active;
       return active ? [active] : [];

@@ -1,5 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { KeyRound, Loader2, LogOut, ShieldCheck } from 'lucide-react';
+import {
+  challengeAndVerifyTotp,
+  loadVerifiedTotpFactors,
+  normalizeTotpCode,
+  readableMfaError,
+} from '../../lib/auth/authFlows';
 import { supabase } from '../../lib/supabase/client';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/Card';
@@ -8,21 +14,6 @@ type MfaChallengeScreenProps = {
   onSuccess: () => void;
   onSignOut: () => Promise<void>;
 };
-
-type TotpFactor = {
-  id: string;
-  status: string;
-};
-
-function readableChallengeError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error || '');
-  const normalized = message.toLowerCase();
-
-  if (normalized.includes('invalid') && normalized.includes('code')) {
-    return 'Código inválido ou expirado. Digite o código atual exibido no aplicativo autenticador.';
-  }
-  return message || 'Não foi possível confirmar o código de segurança.';
-}
 
 export function MfaChallengeScreen({ onSuccess, onSignOut }: MfaChallengeScreenProps) {
   const [factorId, setFactorId] = useState<string | null>(null);
@@ -36,18 +27,14 @@ export function MfaChallengeScreen({ onSuccess, onSignOut }: MfaChallengeScreenP
 
     void (async () => {
       try {
-        const { data, error } = await supabase.auth.mfa.listFactors();
-        if (error) throw error;
-
-        const verifiedFactor = ((data?.totp || []) as TotpFactor[]).find(
-          (factor) => factor.status === 'verified',
-        );
+        const verifiedFactors = await loadVerifiedTotpFactors(supabase.auth.mfa);
+        const verifiedFactor = verifiedFactors[0];
 
         if (!verifiedFactor) {
           const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
           if (assurance.error) throw assurance.error;
 
-          if (assurance.data.nextLevel !== 'aal2') {
+          if (assurance.data?.nextLevel !== 'aal2') {
             onSuccess();
             return;
           }
@@ -57,7 +44,7 @@ export function MfaChallengeScreen({ onSuccess, onSignOut }: MfaChallengeScreenP
 
         if (mounted) setFactorId(verifiedFactor.id);
       } catch (error) {
-        if (mounted) setErrorMessage(readableChallengeError(error));
+        if (mounted) setErrorMessage(readableMfaError(error));
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -72,7 +59,7 @@ export function MfaChallengeScreen({ onSuccess, onSignOut }: MfaChallengeScreenP
     event.preventDefault();
     if (!factorId) return;
 
-    const normalizedCode = code.replace(/\D/g, '');
+    const normalizedCode = normalizeTotpCode(code);
     if (normalizedCode.length !== 6) {
       setErrorMessage('Digite o código de seis números do aplicativo autenticador.');
       return;
@@ -82,21 +69,10 @@ export function MfaChallengeScreen({ onSuccess, onSignOut }: MfaChallengeScreenP
     setIsVerifying(true);
 
     try {
-      const { error } = await supabase.auth.mfa.challengeAndVerify({
-        factorId,
-        code: normalizedCode,
-      });
-      if (error) throw error;
-
-      const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (assurance.error) throw assurance.error;
-      if (assurance.data.currentLevel !== 'aal2') {
-        throw new Error('Não foi possível elevar a sessão para o nível de segurança MFA.');
-      }
-
+      await challengeAndVerifyTotp(supabase.auth.mfa, factorId, normalizedCode);
       onSuccess();
     } catch (error) {
-      setErrorMessage(readableChallengeError(error));
+      setErrorMessage(readableMfaError(error));
       setCode('');
     } finally {
       setIsVerifying(false);
@@ -138,7 +114,7 @@ export function MfaChallengeScreen({ onSuccess, onSignOut }: MfaChallengeScreenP
                 autoFocus
                 disabled={isLoading || isVerifying || !factorId}
                 value={code}
-                onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(event) => setCode(normalizeTotpCode(event.target.value))}
                 placeholder="000000"
                 className="w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-3 text-center text-xl font-semibold tracking-[0.4em] text-brand-dark outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue disabled:opacity-60"
               />

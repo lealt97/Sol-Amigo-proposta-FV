@@ -27,6 +27,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
   const { user } = useAuth();
   const [availableLogos, setAvailableLogos] = useState<string[]>([]);
   const [profileLogo, setProfileLogo] = useState<string | null>(null);
+  const [logosLoaded, setLogosLoaded] = useState(false);
   const [model, setModel] = useState<PdfUserModel>({
     ...initialModel,
     logo_transform: normalizeTransform(initialModel.logo_transform),
@@ -41,10 +42,24 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
       try {
         const profile = await profileService.getProfile(user.id);
         const logos = extractAllLogos(profile.logo_url);
+        const activeLogo = extractActiveLogo(profile.logo_url);
+        const fallbackLogo = activeLogo && logos.includes(activeLogo) ? activeLogo : logos[0] || null;
+
         setAvailableLogos(logos);
-        setProfileLogo(extractActiveLogo(profile.logo_url));
+        setProfileLogo(activeLogo);
+        setModel((currentModel) => {
+          const selectedLogoBelongsToAccount = Boolean(
+            currentModel.logo_url && logos.includes(currentModel.logo_url),
+          );
+
+          return selectedLogoBelongsToAccount
+            ? currentModel
+            : { ...currentModel, logo_url: fallbackLogo };
+        });
+        setLogosLoaded(true);
       } catch (err) {
         console.error('Error loading available logos:', err);
+        toast.error('Não foi possível carregar os logos cadastrados na conta.');
       }
     }
     loadLogos();
@@ -67,6 +82,12 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
   };
 
   const handleSave = async () => {
+    if (logosLoaded && model.logo_url && !availableLogos.includes(model.logo_url)) {
+      toast.error('Escolha um dos logos cadastrados em Configurações da Conta > Logo.');
+      setActiveTab('images');
+      return;
+    }
+
     try {
       setIsSaving(true);
       await pdfDesignService.updateModel(model.id, {
@@ -83,23 +104,23 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, target: 'logo_url' | 'cover_image_url') => {
+  const handleCoverImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    _target: 'cover_image_url',
+  ) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
     try {
-      const url = await pdfDesignService.uploadAsset(
-        file,
-        target === 'logo_url' ? 'logos' : 'pdf-assets',
-        user.id,
-      );
-      setModel((prev) => target === 'cover_image_url'
-        ? { ...prev, cover_image_url: url, cover_image_transform: getDefaultTransform() }
-        : { ...prev, logo_url: url }
-      );
-      toast.success(target === 'cover_image_url' ? 'Imagem enviada. Escolha o ponto de interesse no enquadramento.' : 'Upload concluído!');
+      const url = await pdfDesignService.uploadAsset(file, 'pdf-assets', user.id);
+      setModel((prev) => ({
+        ...prev,
+        cover_image_url: url,
+        cover_image_transform: getDefaultTransform(),
+      }));
+      toast.success('Imagem enviada. Escolha o ponto de interesse no enquadramento.');
     } catch (err) {
-      console.error('Error uploading isolated PDF asset:', err);
+      console.error('Error uploading PDF cover image:', err);
       toast.error('Erro ao fazer upload da imagem.');
     } finally {
       event.target.value = '';
@@ -143,7 +164,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
               model={model}
               profileLogo={profileLogo}
               availableLogos={availableLogos}
-              onFileUpload={handleFileUpload}
+              onFileUpload={handleCoverImageUpload}
               onLogoSelect={(logoUrl) => setModel((prev) => ({ ...prev, logo_url: logoUrl }))}
               onTransformChange={updateTransform}
               onTransformSet={setTransform}

@@ -1,38 +1,16 @@
 import { supabase } from '../lib/supabase/client';
-import { Proposal } from '../types/proposal';
-import { ProposalFormValues } from '../lib/validations/proposal.schema';
-import { calcularSistemaSolar } from '../lib/calculations/solar';
-import { calcularPrecoProposta } from '../lib/calculations/pricing';
 import { calcularPayback } from '../lib/calculations/payback';
+import { calcularPrecoProposta } from '../lib/calculations/pricing';
+import { calcularSistemaSolar } from '../lib/calculations/solar';
+import {
+  PersistProposalBundleInput,
+  createProposalOperations,
+} from '../lib/proposals/proposalOperations';
+import { ProposalFormValues } from '../lib/validations/proposal.schema';
+import { Proposal } from '../types/proposal';
 
 const profileSelect = 'company_name, logo_url, seller_name, seller_phone, seller_email, seller_signature_url, website, company_email, default_validity_days, default_margin_percentage';
 const clientSelect = 'name, document, email, phone, city, state';
-
-const proposalMutationQueues = new Map<string, Promise<unknown>>();
-
-function enqueueProposalMutation<T>(proposalId: string, task: () => Promise<T>): Promise<T> {
-  const previous = proposalMutationQueues.get(proposalId) || Promise.resolve();
-  const next = previous
-    .catch(() => undefined)
-    .then(task);
-
-  proposalMutationQueues.set(proposalId, next);
-
-  void next.then(
-    () => {
-      if (proposalMutationQueues.get(proposalId) === next) {
-        proposalMutationQueues.delete(proposalId);
-      }
-    },
-    () => {
-      if (proposalMutationQueues.get(proposalId) === next) {
-        proposalMutationQueues.delete(proposalId);
-      }
-    },
-  );
-
-  return next;
-}
 
 const formatNumber = (value: unknown): number | null => {
   if (value === '' || value === null || value === undefined) return null;
@@ -81,124 +59,6 @@ const buildPricing = (proposal: Partial<ProposalFormValues>) => {
 
   return { pricing, otherCosts };
 };
-
-function proposalToFormValues(proposal: Proposal): ProposalFormValues {
-  const solar = proposal.solar;
-  const otherCosts = formatNumber(proposal.other_costs) || 0;
-
-  return {
-    client_id: proposal.client_id,
-    title: proposal.title || '',
-    consumption_source: proposal.consumption_source || 'average',
-    history: (proposal.history || []) as Array<string | number>,
-    estimated_daily_consumption: proposal.estimated_daily_consumption ?? '',
-    monthly_consumption_kwh: proposal.monthly_consumption_kwh ?? '',
-    bill_amount: proposal.bill_amount ?? '',
-    loads: (proposal.loads || []).map((load) => ({
-      id: load.id,
-      equipment_name: load.equipment_name,
-      power_watts: load.power_watts,
-      quantity: load.quantity,
-      hours_per_day: load.hours_per_day,
-      daily_consumption: load.daily_consumption,
-    })),
-    system_type: proposal.system_type || 'on_grid',
-    cep: solar?.cep || '',
-    hsp: solar?.hsp ?? '',
-    panel_power_w: solar?.panel_power_w ?? '',
-    yield_factor: solar?.yield_factor ?? 0.8,
-    generation_target_percent: solar?.generation_target_percent ?? 100,
-    oversizing: solar?.oversizing ?? 1.2,
-    energy_tariff: solar?.energy_tariff ?? proposal.energy_tariff ?? '',
-    battery_capacity_kwh: proposal.battery_capacity_kwh ?? '',
-    usable_battery_capacity_kwh: proposal.usable_battery_capacity_kwh ?? '',
-    backup_power_kw: proposal.backup_power_kw ?? '',
-    autonomy_hours: proposal.autonomy_hours ?? '',
-    essential_loads_description: proposal.essential_loads_description || '',
-    selected_solar_kit_id: proposal.selected_solar_kit_id || '',
-    solar_kit_snapshot: proposal.solar_kit_snapshot || null,
-    roof_type: proposal.roof_type || '',
-    roof_area_m2: proposal.roof_area_m2 ?? '',
-    roof_image_url: proposal.roof_image_url || '',
-    module_width_m: proposal.module_width_m ?? '',
-    module_height_m: proposal.module_height_m ?? '',
-    roof_layout_json: proposal.roof_layout_json || undefined,
-    kit_cost: proposal.kit_cost ?? '',
-    labor_cost: proposal.labor_cost ?? '',
-    fixed_costs: proposal.fixed_costs ?? '',
-    freight_cost: proposal.freight_cost ?? '',
-    taxes: proposal.taxes ?? '',
-    commission: proposal.commission ?? '',
-    other_costs: otherCosts || '',
-    additional_costs: otherCosts > 0
-      ? [{ description: 'Custos adicionais', amount: otherCosts }]
-      : [],
-    margin_percentage: proposal.margin_percentage ?? '',
-    discount_percentage: proposal.discount_percentage ?? '',
-  };
-}
-
-function normalizeCreateValues(proposal: ProposalFormValues): ProposalFormValues {
-  const possiblePersistedProposal = proposal as ProposalFormValues & Partial<Proposal>;
-
-  if ('user_id' in possiblePersistedProposal || 'solar' in possiblePersistedProposal) {
-    return proposalToFormValues(possiblePersistedProposal as Proposal);
-  }
-
-  return proposal;
-}
-
-function mergeProposalValues(
-  base: ProposalFormValues,
-  updates: Partial<ProposalFormValues>,
-): ProposalFormValues {
-  return {
-    ...base,
-    ...updates,
-    history: updates.history !== undefined ? updates.history : base.history,
-    loads: updates.loads !== undefined ? updates.loads : base.loads,
-    additional_costs: updates.additional_costs !== undefined
-      ? updates.additional_costs
-      : base.additional_costs,
-    solar_kit_snapshot: updates.solar_kit_snapshot !== undefined
-      ? updates.solar_kit_snapshot
-      : base.solar_kit_snapshot,
-    roof_layout_json: updates.roof_layout_json !== undefined
-      ? updates.roof_layout_json
-      : base.roof_layout_json,
-  };
-}
-
-function areValuesEquivalent(left: unknown, right: unknown) {
-  if (left === right) return true;
-
-  const leftNumber = formatNumber(left);
-  const rightNumber = formatNumber(right);
-  const bothNumberLike = leftNumber !== null && rightNumber !== null;
-  if (bothNumberLike) return leftNumber === rightNumber;
-
-  try {
-    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
-  } catch {
-    return false;
-  }
-}
-
-function extractChangedUpdates(
-  base: ProposalFormValues,
-  updates: Partial<ProposalFormValues>,
-): Partial<ProposalFormValues> {
-  const changed: Partial<ProposalFormValues> = {};
-
-  (Object.keys(updates) as Array<keyof ProposalFormValues>).forEach((key) => {
-    const nextValue = updates[key];
-    if (!areValuesEquivalent(base[key], nextValue)) {
-      (changed as any)[key] = nextValue;
-    }
-  });
-
-  return changed;
-}
 
 function buildProposalPayload(values: ProposalFormValues) {
   const { pricing, otherCosts } = buildPricing(values);
@@ -313,150 +173,82 @@ function buildLoadsPayload(values: ProposalFormValues) {
   });
 }
 
-function isRevisionConflict(error: any) {
-  return error?.code === '40001'
-    || String(error?.message || '').includes('alterada em outra sessão');
-}
-
-async function persistProposalBundle(
-  proposalId: string | null,
-  expectedRevision: number | null,
-  values: ProposalFormValues,
-  eventType: string | null,
-  eventDescription: string | null,
-): Promise<Proposal> {
-  const proposalPayload = buildProposalPayload(values);
+async function persistProposalBundle(input: PersistProposalBundleInput): Promise<Proposal> {
+  const proposalPayload = buildProposalPayload(input.values);
   const finalPrice = Number(proposalPayload.final_price || 0);
-  const solarPayload = buildSolarPayload(values, finalPrice);
-  const loadsPayload = buildLoadsPayload(values);
+  const solarPayload = buildSolarPayload(input.values, finalPrice);
+  const loadsPayload = buildLoadsPayload(input.values);
 
   const { data, error } = await supabase.rpc('save_proposal_bundle', {
-    p_proposal_id: proposalId,
-    p_expected_revision: expectedRevision,
+    p_proposal_id: input.proposalId,
+    p_expected_revision: input.expectedRevision,
     p_proposal: proposalPayload,
     p_solar: solarPayload,
     p_loads: loadsPayload,
-    p_event_type: eventType,
-    p_event_description: eventDescription,
+    p_event_type: input.eventType,
+    p_event_description: input.eventDescription,
   });
 
   if (error) throw error;
 
   const saved = Array.isArray(data) ? data[0] : data;
   if (!saved?.id) throw new Error('O banco não retornou a proposta salva.');
-
   return saved as Proposal;
 }
 
+async function getProposals(): Promise<Proposal[]> {
+  const { data, error } = await supabase
+    .from('proposals')
+    .select(`*, client:clients(${clientSelect}), profile:profiles(${profileSelect})`)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data as Proposal[];
+}
+
+async function getProposalById(id: string): Promise<Proposal> {
+  const { data, error } = await supabase
+    .from('proposals')
+    .select(`*, client:clients(${clientSelect}), solar:solar_system_calculations(*), loads:proposal_loads(*), profile:profiles(${profileSelect})`)
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+
+  if (data && Array.isArray(data.solar) && data.solar.length > 0) {
+    data.solar = data.solar[0];
+  } else if (Array.isArray(data?.solar)) {
+    data.solar = null;
+  }
+
+  const securePdfUrl = buildSecurePdfUrl(data?.public_token);
+  if (data && 'pdf_storage_path' in data && data.pdf_storage_path && securePdfUrl) {
+    data.pdf_url = securePdfUrl;
+  }
+
+  return data as Proposal;
+}
+
+async function removeProposal(id: string) {
+  const { error } = await supabase
+    .from('proposals')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+const proposalOperations = createProposalOperations({
+  getById: getProposalById,
+  persist: persistProposalBundle,
+  remove: removeProposal,
+});
+
 export const proposalService = {
-  async getProposals() {
-    const { data, error } = await supabase
-      .from('proposals')
-      .select(`*, client:clients(${clientSelect}), profile:profiles(${profileSelect})`)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data as Proposal[];
-  },
-
-  async getProposalById(id: string) {
-    const { data, error } = await supabase
-      .from('proposals')
-      .select(`*, client:clients(${clientSelect}), solar:solar_system_calculations(*), loads:proposal_loads(*), profile:profiles(${profileSelect})`)
-      .eq('id', id)
-      .single();
-
-    if (error) throw error;
-
-    if (data && Array.isArray(data.solar) && data.solar.length > 0) {
-      data.solar = data.solar[0];
-    } else if (Array.isArray(data?.solar)) {
-      data.solar = null;
-    }
-
-    const securePdfUrl = buildSecurePdfUrl(data?.public_token);
-    if (data && 'pdf_storage_path' in data && data.pdf_storage_path && securePdfUrl) {
-      data.pdf_url = securePdfUrl;
-    }
-
-    return data as Proposal;
-  },
-
-  async createProposal(
-    proposal: ProposalFormValues,
-    _userId: string,
-    isDuplicate = false,
-  ) {
-    const values = normalizeCreateValues(proposal);
-
-    return persistProposalBundle(
-      null,
-      null,
-      values,
-      isDuplicate ? 'duplicated' : 'created',
-      isDuplicate ? 'Proposta duplicada' : 'Proposta criada',
-    );
-  },
-
-  async updateProposal(id: string, updates: Partial<ProposalFormValues>) {
-    return enqueueProposalMutation(id, async () => {
-      let current = await this.getProposalById(id);
-      const originalValues = proposalToFormValues(current);
-      const changedUpdates = extractChangedUpdates(originalValues, updates);
-
-      if (Object.keys(changedUpdates).length === 0) {
-        return current;
-      }
-
-      let merged = mergeProposalValues(originalValues, changedUpdates);
-
-      try {
-        return await persistProposalBundle(
-          id,
-          current.revision ?? 0,
-          merged,
-          null,
-          null,
-        );
-      } catch (error: any) {
-        if (!isRevisionConflict(error)) throw error;
-
-        current = await this.getProposalById(id);
-        merged = mergeProposalValues(proposalToFormValues(current), changedUpdates);
-
-        return persistProposalBundle(
-          id,
-          current.revision ?? 0,
-          merged,
-          null,
-          null,
-        );
-      }
-    });
-  },
-
-  async duplicateProposal(sourceProposalId: string, userId: string) {
-    const source = await this.getProposalById(sourceProposalId);
-    const values = proposalToFormValues(source);
-
-    return this.createProposal(
-      {
-        ...values,
-        title: `${source.title || 'Proposta'} (Cópia)`,
-      },
-      userId,
-      true,
-    );
-  },
-
-  async deleteProposal(id: string) {
-    return enqueueProposalMutation(id, async () => {
-      const { error } = await supabase
-        .from('proposals')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-    });
-  },
+  getProposals,
+  getProposalById,
+  createProposal: proposalOperations.createProposal,
+  updateProposal: proposalOperations.updateProposal,
+  duplicateProposal: proposalOperations.duplicateProposal,
+  deleteProposal: proposalOperations.deleteProposal,
 };

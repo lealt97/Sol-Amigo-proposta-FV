@@ -36,6 +36,7 @@ interface MfaSettingsCardProps {
 
 const codeInputClassName =
   'w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-center text-lg font-semibold tracking-[0.35em] text-brand-dark outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue disabled:cursor-not-allowed disabled:opacity-60';
+const pendingFactorStoragePrefix = 'solamigo:mfa-pending-factor:';
 
 function normalizeQrCode(qrCode: string) {
   const trimmed = qrCode.trim();
@@ -61,6 +62,10 @@ function readableMfaError(error: unknown) {
     return 'O cadastro de MFA por aplicativo autenticador está desativado no projeto Supabase. Ative TOTP em Authentication > Multi-Factor Authentication.';
   }
 
+  if (code === 'mfa_totp_verify_not_enabled' || normalized.includes('verification disabled')) {
+    return 'A verificação MFA está desativada no projeto Supabase. Ative Challenge and Verify nas configurações de autenticação.';
+  }
+
   if (code === 'mfa_challenge_expired' || normalized.includes('challenge expired')) {
     return 'A tentativa de verificação expirou. Aguarde o próximo código do aplicativo e tente novamente.';
   }
@@ -74,6 +79,10 @@ function readableMfaError(error: unknown) {
     return 'O código informado é inválido ou expirou. Digite o código atual do aplicativo autenticador.';
   }
 
+  if (code === 'mfa_ip_address_mismatch') {
+    return 'A ativação começou em outro endereço de rede. Cancele a configuração, permaneça na mesma conexão e tente novamente.';
+  }
+
   if (
     code === 'insufficient_aal' ||
     normalized.includes('aal2') ||
@@ -82,15 +91,43 @@ function readableMfaError(error: unknown) {
     return 'Confirme o código atual do aplicativo autenticador antes de desativar o MFA.';
   }
 
-  if (normalized.includes('verification disabled')) {
-    return 'A verificação MFA está desativada no projeto Supabase. Ative Challenge and Verify nas configurações de autenticação.';
+  if (code === 'too_many_enrolled_mfa_factors') {
+    return 'Existem muitas tentativas MFA antigas vinculadas à conta. Remova os fatores pendentes no painel do Supabase antes de tentar novamente.';
   }
 
-  if (normalized.includes('factor') && normalized.includes('already exists')) {
-    return 'Já existe uma configuração MFA pendente para esta conta. Cancele a configuração anterior e tente novamente.';
+  if (code === 'mfa_factor_name_conflict') {
+    return 'Não foi possível criar uma identificação única para esta tentativa de MFA. Tente novamente.';
   }
 
   return message || 'Não foi possível concluir a operação de autenticação em duas etapas.';
+}
+
+function pendingStorageKey(userId: string) {
+  return `${pendingFactorStoragePrefix}${userId}`;
+}
+
+function readStoredPendingFactor(userId: string) {
+  try {
+    return window.localStorage.getItem(pendingStorageKey(userId));
+  } catch {
+    return null;
+  }
+}
+
+function storePendingFactor(userId: string, factorId: string) {
+  try {
+    window.localStorage.setItem(pendingStorageKey(userId), factorId);
+  } catch {
+    // The MFA flow still works when browser storage is unavailable.
+  }
+}
+
+function clearStoredPendingFactor(userId: string) {
+  try {
+    window.localStorage.removeItem(pendingStorageKey(userId));
+  } catch {
+    // Nothing else is required when browser storage is unavailable.
+  }
 }
 
 async function challengeAndVerifyFactor(factorId: string, code: string) {
@@ -105,6 +142,27 @@ async function challengeAndVerifyFactor(factorId: string, code: string) {
   if (verification.error) throw verification.error;
 
   return verification.data;
+}
+
+async function createUniqueTotpEnrollment() {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const result = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: `SolAmigo Pro ${uniqueSuffix}`,
+    });
+
+    if (!result.error) return result.data;
+
+    lastError = result.error;
+    if (getErrorCode(result.error) !== 'mfa_factor_name_conflict') {
+      throw result.error;
+    }
+  }
+
+  throw lastError || new Error('Não foi possível iniciar uma nova configuração MFA.');
 }
 
 export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSettingsCardProps) {
@@ -124,9 +182,20 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
     if (error) throw error;
 
     const factors = (data?.totp || []) as TotpFactor[];
-    setVerifiedFactors(factors.filter((factor) => factor.status === 'verified'));
-    return factors;
+    const verified = factors.filter((factor) => factor.status === 'verified');
+    setVerifiedFactors(verified);
+    return verified;
   }, []);
+
+  const persistProfileFlag = useCallback(async (mfaEnabled: boolean) => {
+    try {
+      const updatedProfile = await profileService.updateProfile(userId, { mfa_enabled: mfaEnabled });
+      onProfileChange(updatedProfile);
+    } catch (error) {
+      console.warn('Não foi possível sincronizar mfa_enabled no perfil:', error);
+      onProfileChange({ ...profile, mfa_enabled: mfaEnabled });
+    }
+  }, [onProfileChange, profile, userId]);
 
   useEffect(() => {
     let mounted = true;
@@ -136,10 +205,22 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
         const factors = await loadFactors();
         if (!mounted) return;
 
-        const hasVerifiedFactor = factors.some((factor) => factor.status === 'verified');
-        if (profile.mfa_enabled !== hasVerifiedFactor) {
-          onProfileChange({ ...profile, mfa_enabled: hasVerifiedFactor });
+        if (factors.length > 0) {
+          clearStoredPendingFactor(userId);
+          if (!profile.mfa_enabled) await persistProfileFlag(true);
+          return;
         }
+
+        const storedPendingFactorId = readStoredPendingFactor(userId);
+        if (storedPendingFactorId) {
+          const removal = await supabase.auth.mfa.unenroll({ factorId: storedPendingFactorId });
+          if (removal.error && getErrorCode(removal.error) !== 'mfa_factor_not_found') {
+            console.warn('Não foi possível limpar a tentativa MFA pendente:', removal.error);
+          }
+          clearStoredPendingFactor(userId);
+        }
+
+        if (profile.mfa_enabled) await persistProfileFlag(false);
       } catch (error) {
         if (mounted) setErrorMessage(readableMfaError(error));
       } finally {
@@ -150,17 +231,7 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
     return () => {
       mounted = false;
     };
-  }, [loadFactors, onProfileChange, profile]);
-
-  const persistProfileFlag = async (mfaEnabled: boolean) => {
-    try {
-      const updatedProfile = await profileService.updateProfile(userId, { mfa_enabled: mfaEnabled });
-      onProfileChange(updatedProfile);
-    } catch (error) {
-      console.warn('Não foi possível sincronizar mfa_enabled no perfil:', error);
-      onProfileChange({ ...profile, mfa_enabled: mfaEnabled });
-    }
-  };
+  }, [loadFactors, persistProfileFlag, profile.mfa_enabled, userId]);
 
   const startEnrollment = async () => {
     setErrorMessage(null);
@@ -170,24 +241,22 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
 
     try {
       const factors = await loadFactors();
-      const alreadyVerified = factors.some((factor) => factor.status === 'verified');
-
-      if (alreadyVerified) {
+      if (factors.length > 0) {
         setEnrollment(null);
         return;
       }
 
-      for (const factor of factors.filter((item) => item.status !== 'verified')) {
-        const removal = await supabase.auth.mfa.unenroll({ factorId: factor.id });
-        if (removal.error) throw removal.error;
+      const storedPendingFactorId = readStoredPendingFactor(userId);
+      if (storedPendingFactorId) {
+        const removal = await supabase.auth.mfa.unenroll({ factorId: storedPendingFactorId });
+        if (removal.error && getErrorCode(removal.error) !== 'mfa_factor_not_found') {
+          throw removal.error;
+        }
+        clearStoredPendingFactor(userId);
       }
 
-      const { data, error } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        friendlyName: 'SolAmigo Pro',
-      });
-      if (error) throw error;
-
+      const data = await createUniqueTotpEnrollment();
+      storePendingFactor(userId, data.id);
       setEnrollment({
         factorId: data.id,
         qrCode: normalizeQrCode(data.totp.qr_code),
@@ -203,14 +272,23 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
 
   const cancelEnrollment = async () => {
     const currentEnrollment = enrollment;
-    setEnrollment(null);
-    setVerificationCode('');
     setErrorMessage(null);
+    setIsWorking(true);
 
-    if (!currentEnrollment) return;
-
-    const { error } = await supabase.auth.mfa.unenroll({ factorId: currentEnrollment.factorId });
-    if (error) setErrorMessage(readableMfaError(error));
+    try {
+      if (currentEnrollment) {
+        const { error } = await supabase.auth.mfa.unenroll({ factorId: currentEnrollment.factorId });
+        if (error && getErrorCode(error) !== 'mfa_factor_not_found') throw error;
+      }
+      clearStoredPendingFactor(userId);
+      setEnrollment(null);
+      setVerificationCode('');
+      toast.success('Configuração MFA pendente cancelada.');
+    } catch (error) {
+      setErrorMessage(readableMfaError(error));
+    } finally {
+      setIsWorking(false);
+    }
   };
 
   const verifyEnrollment = async () => {
@@ -235,10 +313,11 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
       }
 
       const factors = await loadFactors();
-      if (!factors.some((factor) => factor.status === 'verified')) {
+      if (!factors.length) {
         throw new Error('O fator MFA não foi marcado como verificado pelo Supabase.');
       }
 
+      clearStoredPendingFactor(userId);
       await persistProfileFlag(true);
       setEnrollment(null);
       setVerificationCode('');
@@ -285,13 +364,13 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
       }
 
       const remainingFactors = await loadFactors();
-      if (remainingFactors.some((factor) => factor.status === 'verified')) {
+      if (remainingFactors.length > 0) {
         throw new Error('Ainda existe um fator MFA verificado vinculado a esta conta.');
       }
 
+      clearStoredPendingFactor(userId);
       await supabase.auth.refreshSession();
       await persistProfileFlag(false);
-      setVerifiedFactors([]);
       setConfirmDisable(false);
       setDisableCode('');
       toast.success('Autenticação em duas etapas desativada.');

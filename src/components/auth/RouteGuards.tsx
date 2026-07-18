@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { resolveMfaGateState } from '../../lib/auth/authFlows';
 import { supabase } from '../../lib/supabase/client';
 import { MfaChallengeScreen } from './MfaChallengeScreen';
 
@@ -26,14 +27,13 @@ export function ProtectedRoute() {
       const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (!mounted) return;
 
-      if (error) {
+      if (error || !data) {
         console.error('Erro ao verificar nível MFA da sessão:', error);
         setMfaGateState('error');
         return;
       }
 
-      const needsSecondFactor = data.currentLevel === 'aal1' && data.nextLevel === 'aal2';
-      setMfaGateState(needsSecondFactor ? 'required' : 'ready');
+      setMfaGateState(resolveMfaGateState(data));
     })();
 
     return () => {

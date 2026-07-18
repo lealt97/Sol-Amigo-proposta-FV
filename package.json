@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:core": "tsc --noEmit -p tsconfig.core.json",
     "lint": "npm run typecheck",
-    "test": "tsx --test tests/calculations.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "check": "npm run build"
   },
   "dependencies": {

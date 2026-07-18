@@ -1,7 +1,27 @@
 import { supabase } from '../lib/supabase/client';
 import { Profile } from '../types/profile';
+import {
+  assertAccountLogoLimit,
+  extractAllLogos,
+  MAX_ACCOUNT_LOGOS,
+} from '../utils/logoHelper';
 
 const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9_.-]/g, '-');
+
+async function assertLogoUploadAvailable(userId: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('logo_url')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  const currentLogos = extractAllLogos(data?.logo_url || null);
+  if (currentLogos.length >= MAX_ACCOUNT_LOGOS) {
+    throw new Error(`Você pode cadastrar no máximo ${MAX_ACCOUNT_LOGOS} logos. Exclua um logo para enviar outro.`);
+  }
+}
 
 export const profileService = {
   async getProfile(userId: string) {
@@ -37,6 +57,10 @@ export const profileService = {
   },
 
   async updateProfile(userId: string, profileData: Partial<Profile>) {
+    if (Object.prototype.hasOwnProperty.call(profileData, 'logo_url')) {
+      assertAccountLogoLimit(extractAllLogos(profileData.logo_url || null));
+    }
+
     const { data, error } = await supabase
       .from('profiles')
       .update(profileData)
@@ -49,6 +73,10 @@ export const profileService = {
   },
 
   async uploadLogo(file: File, userId: string) {
+    // Validate before creating a Storage object so a fourth upload cannot leave
+    // an orphaned file when the account has already reached its logo quota.
+    await assertLogoUploadAvailable(userId);
+
     const safeName = sanitizeFileName(file.name || 'logo');
     const filePath = `${userId}/logos/${Date.now()}-${safeName}`;
 

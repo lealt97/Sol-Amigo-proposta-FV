@@ -144,7 +144,7 @@ test('cálculos, cargas e eventos dependem da propriedade da proposta', async ()
     assert.match(combined, /exists\s*\(\s*select 1/i);
     assert.match(
       combined,
-      /proposals\.user_id\s*=\s*auth\.uid\(\)|p\.user_id\s*=\s*auth\.uid\(\)/i,
+      /(?:proposals\.|p\.)?user_id\s*=\s*auth\.uid\(\)/i,
     );
   }
 });

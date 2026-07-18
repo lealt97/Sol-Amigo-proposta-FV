@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
+import { getAuthErrorMessage, requestPasswordReset } from '../../lib/auth/authFlows';
 import { forgotPasswordSchema, ForgotPasswordFormValues } from '../../lib/validations/auth.schema';
 import { supabase } from '../../lib/supabase/client';
 import { Button } from '../ui/Button';
@@ -25,18 +26,13 @@ export function ForgotPasswordForm() {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setError(null);
     setSuccess(false);
-    
-    // Configurar a URL de redirecionamento para o seu app
-    const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
 
-    if (error) {
-      setError(translateAuthError(error.message));
-      return;
+    try {
+      await requestPasswordReset(supabase.auth, data.email, window.location.origin);
+      setSuccess(true);
+    } catch (authError) {
+      setError(translateAuthError(getAuthErrorMessage(authError)));
     }
-
-    setSuccess(true);
   };
 
   return (

@@ -102,8 +102,8 @@ export function AnimatedLoginLogo({ className = '' }: AnimatedLoginLogoProps) {
               to { transform: rotate(360deg); }
             }
             @keyframes login-rays-pulse {
-              0%, 100% { transform: scale(.985); }
-              50% { transform: scale(1.045); }
+              0%, 100% { transform: scale(.92); }
+              50% { transform: scale(1.04); }
             }
             @keyframes login-sun-aura {
               0%, 100% { opacity: .25; transform: scale(.99); }

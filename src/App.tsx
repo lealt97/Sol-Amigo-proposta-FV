@@ -21,7 +21,7 @@ import { ClientForm } from "./pages/clientes/ClientForm";
 import { ClientDetails } from "./pages/clientes/ClientDetails";
 import { ProposalList } from "./pages/propostas/ProposalList";
 import { ProposalWizard } from "./pages/propostas/ProposalWizard";
-import { ProposalDetails } from "./pages/propostas/ProposalDetails";
+import { ProposalDetailsRoute } from "./components/proposals/ProposalDetailsRoute";
 import { DesignPdf } from "./pages/design-pdf/DesignPdf";
 import { PublicProposal } from "./pages/public/PublicProposal";
 import { Configuracoes } from "./pages/Configuracoes";
@@ -59,7 +59,7 @@ export default function App() {
               <Route path="clientes/:id/editar" element={<ClientForm />} />
               <Route path="propostas" element={<ProposalList />} />
               <Route path="propostas/nova" element={<ProposalWizard />} />
-              <Route path="propostas/:id" element={<ProposalDetails />} />
+              <Route path="propostas/:id" element={<ProposalDetailsRoute />} />
               <Route path="propostas/:id/editar" element={<ProposalWizard />} />
               <Route path="kits-solares" element={<SolarKitCatalog />} />
               <Route path="design-pdf" element={<DesignPdf />} />

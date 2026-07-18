@@ -6,10 +6,14 @@ import { PdfUserModel } from '../../types/pdfModels';
 import { supabase } from '../supabase/client';
 import { pdfModelService } from '../../services/pdfModelService';
 import { generateSvgCoverImage } from './utils/svgToImage';
+import {
+  createPdfGenerationOperations,
+  type PdfMetadataInput,
+} from './pdfGenerationOperations';
 
 async function resolvePdfModel(
   proposal: Proposal,
-  selectedModelId?: string | null
+  selectedModelId?: string | null,
 ): Promise<PdfUserModel | null> {
   const models = await pdfModelService.getUserModels(proposal.user_id);
 
@@ -27,7 +31,7 @@ async function resolvePdfModel(
 }
 
 async function enrichProposalForPdf(proposal: Proposal): Promise<Proposal> {
-  const enrichedProposal: any = { ...proposal };
+  const enrichedProposal: Proposal = { ...proposal };
 
   try {
     if (proposal.client_id) {
@@ -66,7 +70,7 @@ async function enrichProposalForPdf(proposal: Proposal): Promise<Proposal> {
     console.warn('Could not enrich PDF proposal solar data', solarError);
   }
 
-  return enrichedProposal as Proposal;
+  return enrichedProposal;
 }
 
 function buildSecurePdfUrl(publicToken: string): string {
@@ -74,102 +78,114 @@ function buildSecurePdfUrl(publicToken: string): string {
   return `${supabaseUrl}/functions/v1/public-proposal-pdf?token=${encodeURIComponent(publicToken)}`;
 }
 
+async function renderProposalPdf(
+  proposal: Proposal,
+  selectedModelId?: string | null,
+): Promise<Blob> {
+  const enrichedProposal = await enrichProposalForPdf(proposal);
+  let coverImage: string | null = null;
+  let selectedModel: PdfUserModel | null = null;
+
+  try {
+    selectedModel = await resolvePdfModel(enrichedProposal, selectedModelId);
+    if (selectedModel) {
+      coverImage = await generateSvgCoverImage(selectedModel, enrichedProposal);
+    }
+  } catch (templateError) {
+    console.warn('Could not load custom cover template, falling back to default', templateError);
+  }
+
+  return pdf(
+    <ProposalDocument
+      proposal={enrichedProposal}
+      coverImage={coverImage}
+      pdfTheme={selectedModel?.theme}
+    />,
+  ).toBlob();
+}
+
+async function uploadProposalPdf(storagePath: string, blob: Blob) {
+  const { error } = await supabase.storage
+    .from('proposals')
+    .upload(storagePath, blob, {
+      contentType: 'application/pdf',
+      upsert: true,
+    });
+
+  if (error) throw error;
+}
+
+async function removeProposalPdf(storagePath: string) {
+  const { error } = await supabase.storage
+    .from('proposals')
+    .remove([storagePath]);
+
+  if (error) throw error;
+}
+
+async function persistProposalPdfMetadata(input: PdfMetadataInput): Promise<string> {
+  const { error: updateError } = await supabase
+    .from('proposals')
+    .update({
+      public_token: input.publicToken,
+      pdf_storage_path: input.storagePath,
+      pdf_url: input.secureUrl,
+    })
+    .eq('id', input.proposalId);
+
+  if (!updateError) return input.secureUrl;
+
+  console.warn(
+    'Modern update failed, attempting fallback update without pdf_storage_path:',
+    updateError,
+  );
+
+  const { data: urlData } = supabase.storage
+    .from('proposals')
+    .getPublicUrl(input.storagePath);
+  const fallbackUrl = urlData?.publicUrl || input.secureUrl;
+
+  const { error: fallbackTokenError } = await supabase
+    .from('proposals')
+    .update({
+      public_token: input.publicToken,
+      pdf_url: fallbackUrl,
+    })
+    .eq('id', input.proposalId);
+
+  if (!fallbackTokenError) return fallbackUrl;
+
+  console.warn(
+    'Update with public_token failed, trying fallback with only pdf_url:',
+    fallbackTokenError,
+  );
+
+  const { error: fallbackUrlOnlyError } = await supabase
+    .from('proposals')
+    .update({ pdf_url: fallbackUrl })
+    .eq('id', input.proposalId);
+
+  if (fallbackUrlOnlyError) throw fallbackUrlOnlyError;
+  return fallbackUrl;
+}
+
+const pdfGenerationOperations = createPdfGenerationOperations(
+  {
+    render: renderProposalPdf,
+    upload: uploadProposalPdf,
+    persistMetadata: persistProposalPdfMetadata,
+    remove: removeProposalPdf,
+  },
+  {
+    createToken: () => globalThis.crypto.randomUUID().replace(/-/g, ''),
+    buildSecureUrl: buildSecurePdfUrl,
+    logger: console,
+  },
+);
+
 export async function generateAndUploadPdf(
   proposal: Proposal,
-  selectedModelId?: string | null
+  selectedModelId?: string | null,
 ): Promise<string | null> {
-  try {
-    const enrichedProposal = await enrichProposalForPdf(proposal);
-    let coverImage: string | null = null;
-    let selectedModel: PdfUserModel | null = null;
-
-    try {
-      selectedModel = await resolvePdfModel(enrichedProposal, selectedModelId);
-      if (selectedModel) {
-        coverImage = await generateSvgCoverImage(selectedModel, enrichedProposal);
-      }
-    } catch (templateError) {
-      console.warn('Could not load custom cover template, falling back to default', templateError);
-    }
-
-    const asPdf = pdf(
-      <ProposalDocument
-        proposal={enrichedProposal}
-        coverImage={coverImage}
-        pdfTheme={selectedModel?.theme}
-      />
-    );
-    const blob = await asPdf.toBlob();
-
-    const timestamp = Date.now();
-    const fileName = `proposta-${enrichedProposal.code || enrichedProposal.id.substring(0, 8)}-${timestamp}.pdf`;
-    const filePath = `${enrichedProposal.user_id}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('proposals')
-      .upload(filePath, blob, {
-        contentType: 'application/pdf',
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error('Error uploading private PDF to storage:', uploadError);
-      return null;
-    }
-
-    const publicToken = enrichedProposal.public_token
-      || crypto.randomUUID().replace(/-/g, '');
-    const securePdfUrl = buildSecurePdfUrl(publicToken);
-
-    const { error: updateError } = await supabase
-      .from('proposals')
-      .update({
-        public_token: publicToken,
-        pdf_storage_path: filePath,
-        pdf_url: securePdfUrl,
-      })
-      .eq('id', enrichedProposal.id);
-
-    if (updateError) {
-      console.warn('Modern update failed, attempting fallback update without pdf_storage_path:', updateError);
-
-      const { data: urlData } = supabase.storage
-        .from('proposals')
-        .getPublicUrl(filePath);
-      const publicPdfUrl = urlData?.publicUrl || securePdfUrl;
-
-      // Fallback 1: Try updating with public_token and pdf_url
-      const { error: fallbackTokenError } = await supabase
-        .from('proposals')
-        .update({
-          public_token: publicToken,
-          pdf_url: publicPdfUrl,
-        })
-        .eq('id', enrichedProposal.id);
-
-      if (fallbackTokenError) {
-        console.warn('Update with public_token failed, trying fallback with only pdf_url:', fallbackTokenError);
-
-        // Fallback 2: Try updating ONLY pdf_url
-        const { error: fallbackUrlOnlyError } = await supabase
-          .from('proposals')
-          .update({
-            pdf_url: publicPdfUrl,
-          })
-          .eq('id', enrichedProposal.id);
-
-        if (fallbackUrlOnlyError) {
-          console.error('All fallback update strategies for PDF generation failed:', fallbackUrlOnlyError);
-          return null;
-        }
-      }
-
-      return publicPdfUrl;
-    }
-
-    return securePdfUrl;
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-    return null;
-  }
+  return pdfGenerationOperations.generateAndStore(proposal, selectedModelId);
 }

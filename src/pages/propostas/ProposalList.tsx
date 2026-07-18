@@ -12,17 +12,7 @@ import { formatDate } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
 import { ContinueProposalButton } from '../../components/proposals/ContinueProposalButton';
-
-const PENDING_STATUSES = ['draft', 'pending'];
-
-const isProposalInFilling = (proposal: Proposal) => {
-  return PENDING_STATUSES.includes(proposal.status)
-    && !proposal.pdf_url
-    && !proposal.sent_whatsapp_at
-    && !proposal.public_viewed_at
-    && !proposal.accepted_at
-    && !proposal.rejected_at;
-};
+import { isProposalPending, PENDING_PROPOSAL_STATUSES } from '../../lib/proposals/status';
 
 export function ProposalList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -65,7 +55,7 @@ export function ProposalList() {
                           p.client?.name.toLowerCase().includes(term);
       const matchStatus = statusFilter
         ? statusFilter === 'pending_like'
-          ? PENDING_STATUSES.includes(p.status)
+          ? PENDING_PROPOSAL_STATUSES.includes(p.status as (typeof PENDING_PROPOSAL_STATUSES)[number])
           : p.status === statusFilter
         : true;
       return matchSearch && matchStatus;
@@ -96,6 +86,12 @@ export function ProposalList() {
 
   const handleDuplicate = async (proposal: Proposal) => {
     if (!user) return;
+
+    if (isProposalPending(proposal)) {
+      toast.info('Conclua a proposta pendente antes de duplicá-la.');
+      return;
+    }
+
     try {
       const { id, created_at, updated_at, code, client, ...rest } = proposal;
       const duplicated = await proposalService.createProposal(
@@ -206,7 +202,7 @@ export function ProposalList() {
                 </tr>
               ) : filteredProposals.length > 0 ? (
                 filteredProposals.map((proposal) => {
-                  const inFilling = isProposalInFilling(proposal);
+                  const pending = isProposalPending(proposal);
 
                   return (
                     <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50 transition-colors">
@@ -225,51 +221,52 @@ export function ProposalList() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {!inFilling && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
-                              title="Visualizar"
-                              onClick={() => navigate(`/propostas/${proposal.id}`)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          )}
-                          {inFilling ? (
-                            <ContinueProposalButton to={`/propostas/${proposal.id}/editar`} />
+                          {pending ? (
+                            <ContinueProposalButton
+                              to={`/propostas/${proposal.id}/editar`}
+                              className="h-9 min-w-[170px]"
+                            />
                           ) : (
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                              title="Editar proposta"
-                              aria-label="Editar proposta"
-                              onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
+                                title="Visualizar"
+                                onClick={() => navigate(`/propostas/${proposal.id}`)}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
+                                title="Editar proposta"
+                                aria-label="Editar proposta"
+                                onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
+                                title="Duplicar"
+                                onClick={() => handleDuplicate(proposal)}
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
+                                title="Excluir"
+                                onClick={() => triggerDelete(proposal.id, proposal.title)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
                           )}
-                          {!inFilling && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                              title="Duplicar"
-                              onClick={() => handleDuplicate(proposal)}
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                          )}
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
-                            title="Excluir"
-                            onClick={() => triggerDelete(proposal.id, proposal.title)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
                         </div>
                       </td>
                     </tr>

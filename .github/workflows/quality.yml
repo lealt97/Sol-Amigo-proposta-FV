@@ -32,35 +32,5 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Mapear implementação de PDF
-        run: |
-          find src -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 \
-            | xargs -0 grep -IlE '@react-pdf/renderer|pdf_storage_path|proposal-pdfs|storage\.from\(.?proposal|generatePdf|generatePDF|toBlob|\.upload\(' \
-            | sort > pdf-discovery.txt || true
-          while IFS= read -r file; do
-            echo "===== $file =====" >> pdf-discovery.txt
-            grep -nE '@react-pdf/renderer|pdf_storage_path|proposal-pdfs|storage\.from\(.?proposal|generatePdf|generatePDF|toBlob|\.upload\(' "$file" >> pdf-discovery.txt || true
-          done < <(sed -n '/^src\//p' pdf-discovery.txt)
-
-      - name: Publicar mapeamento de PDF
-        uses: actions/upload-artifact@v4
-        with:
-          name: pdf-discovery
-          path: pdf-discovery.txt
-          retention-days: 1
-
       - name: Executar validações completas
-        run: |
-          set +e
-          npm run check > validation.log 2>&1
-          status=$?
-          cat validation.log
-          exit $status
-
-      - name: Publicar saída das validações
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pdf-validation-output
-          path: validation.log
-          retention-days: 1
+        run: npm run check

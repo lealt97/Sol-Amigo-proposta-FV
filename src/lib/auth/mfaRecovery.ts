@@ -1,7 +1,16 @@
 import { supabase } from '../supabase/client';
+import {
+  formatMfaRecoveryCode,
+  isValidMfaRecoveryCode,
+} from './mfaRecoveryCode';
 
-export const MFA_RECOVERY_CODE_RAW_LENGTH = 24;
-export const MFA_RECOVERY_CODE_GROUP_SIZE = 4;
+export {
+  MFA_RECOVERY_CODE_GROUP_SIZE,
+  MFA_RECOVERY_CODE_RAW_LENGTH,
+  formatMfaRecoveryCode,
+  isValidMfaRecoveryCode,
+  normalizeMfaRecoveryCode,
+} from './mfaRecoveryCode';
 
 export type MfaRecoveryCodeStatus = {
   factorId: string | null;
@@ -9,22 +18,6 @@ export type MfaRecoveryCodeStatus = {
   generatedAt: string | null;
   lastUsedAt: string | null;
 };
-
-export function normalizeMfaRecoveryCode(value: string) {
-  return value
-    .toUpperCase()
-    .replace(/[^A-F0-9]/g, '')
-    .slice(0, MFA_RECOVERY_CODE_RAW_LENGTH);
-}
-
-export function formatMfaRecoveryCode(value: string) {
-  const normalized = normalizeMfaRecoveryCode(value);
-  return normalized.match(new RegExp(`.{1,${MFA_RECOVERY_CODE_GROUP_SIZE}}`, 'g'))?.join('-') || '';
-}
-
-export function isValidMfaRecoveryCode(value: string) {
-  return normalizeMfaRecoveryCode(value).length === MFA_RECOVERY_CODE_RAW_LENGTH;
-}
 
 export async function getMfaRecoveryCodeStatus(): Promise<MfaRecoveryCodeStatus> {
   const { data, error } = await supabase.rpc('get_mfa_recovery_code_status');

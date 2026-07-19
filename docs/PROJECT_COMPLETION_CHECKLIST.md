@@ -38,17 +38,19 @@ Este documento acompanha a preparação do produto para lançamento comercial. U
 - [x] Testes de isolamento entre contas distintas
 - [x] Adicionar testes E2E com Playwright
 
-Evidência atual: 85 testes automatizados do núcleo e 7 testes E2E com Playwright aprovados no GitHub Actions. A cobertura inclui cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público, regressões das políticas RLS e Storage, navegação pública, validação de formulários, redirecionamento de rotas protegidas, recuperação de senha, aprovação e recusa pelo navegador. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
+Evidência atual: 90 testes automatizados do núcleo e 7 testes E2E com Playwright aprovados no GitHub Actions. A cobertura inclui cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público, regressões das políticas RLS e Storage, encaixe proporcional de logos, navegação pública, validação de formulários, redirecionamento de rotas protegidas, recuperação de senha, aprovação e recusa pelo navegador. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
 
 ### PDFs e editor visual
 
-- [ ] Validar todos os modelos com logo horizontal, vertical e quadrada
+- [x] Validar todos os modelos com logo horizontal, vertical e quadrada
 - [ ] Validar nomes e endereços longos sem cortes
 - [ ] Validar imagens verticais e horizontais
 - [ ] Validar todas as paletas e cores de contraste
 - [ ] Testar geração repetida sem perda de qualidade
 - [ ] Testar PDF em navegadores e dispositivos diferentes
 - [ ] Definir limite aceitável de tamanho do arquivo final
+
+Evidência: os 12 modelos A4 foram verificados quanto à existência de slot de logo ou fallback documentado. Logos horizontais, quadradas e verticais são centralizadas com `preserveAspectRatio="xMidYMid meet"`, mantendo a proporção e permanecendo integralmente dentro da área disponível.
 
 ## Fase 2 — Supabase e segurança
 

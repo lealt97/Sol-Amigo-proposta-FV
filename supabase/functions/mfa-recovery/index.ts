@@ -92,7 +92,7 @@ Deno.serve(async (request) => {
     );
 
     if (consumeError) {
-      console.error('mfa-recovery: code validation failed', consumeError);
+      console.error('mfa-recovery: validation operation failed', consumeError);
       return jsonResponse({ error: 'Não foi possível validar o código.' }, 500);
     }
 
@@ -127,7 +127,7 @@ Deno.serve(async (request) => {
     );
 
     if (finalizeError || finalized !== true) {
-      console.error('mfa-recovery: recovery finalization failed', finalizeError);
+      console.error('mfa-recovery: finalization failed', finalizeError);
       return jsonResponse({ error: 'O fator foi removido, mas a finalização precisa de suporte.' }, 500);
     }
 
@@ -145,7 +145,7 @@ Deno.serve(async (request) => {
         p_code_id: codeId,
       });
       if (restoreError) {
-        console.error('mfa-recovery: failed to restore consumed code', restoreError);
+        console.error('mfa-recovery: compensation failed', restoreError);
       }
     }
 

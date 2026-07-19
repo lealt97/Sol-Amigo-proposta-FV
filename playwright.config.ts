@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = 'http://127.0.0.1:3000';
+const pdfCompatibilityTest = /pdf-compatibility\.spec\.ts/;
 
 export default defineConfig({
   testDir: './e2e',
@@ -19,8 +20,28 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'chromium-desktop',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox-desktop-pdf',
+      testMatch: pdfCompatibilityTest,
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit-desktop-pdf',
+      testMatch: pdfCompatibilityTest,
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: 'chromium-mobile-pdf',
+      testMatch: pdfCompatibilityTest,
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'webkit-mobile-pdf',
+      testMatch: pdfCompatibilityTest,
+      use: { ...devices['iPhone 13'] },
     },
   ],
   webServer: {

@@ -5,7 +5,7 @@ import {
   formatMfaRecoveryCode,
   isValidMfaRecoveryCode,
   normalizeMfaRecoveryCode,
-} from '../src/lib/auth/mfaRecovery';
+} from '../src/lib/auth/mfaRecoveryCode';
 
 const MIGRATION_PATH = 'supabase/migrations/20260719223000_mfa_recovery_codes.sql';
 const FUNCTION_PATH = 'supabase/functions/mfa-recovery/index.ts';

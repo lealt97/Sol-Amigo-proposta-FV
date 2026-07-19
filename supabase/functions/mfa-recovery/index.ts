@@ -101,6 +101,9 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'Código de recuperação inválido ou já utilizado.' }, 400);
     }
 
+    const { error: signOutError } = await admin.auth.admin.signOut(accessToken, 'global');
+    if (signOutError) throw signOutError;
+
     const { data: factorData, error: factorError } = await admin.auth.admin.mfa.listFactors({
       userId,
     });

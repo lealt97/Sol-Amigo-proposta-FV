@@ -15,9 +15,9 @@ concurrency:
 
 jobs:
   quality:
-    name: TypeScript completo, testes e build
+    name: Gerar lockfile e validar projeto
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Baixar código
@@ -28,6 +28,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Atualizar lockfile do Playwright
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Publicar lockfile atualizado
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-package-lock
+          path: package-lock.json
+          retention-days: 1
 
       - name: Instalar dependências
         run: npm ci

@@ -36,10 +36,10 @@ jobs:
         run: npm run check
 
   e2e:
-    name: Playwright E2E — Chromium
+    name: Playwright E2E — navegadores e dispositivos
     needs: quality
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Baixar código
@@ -54,8 +54,8 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Instalar Chromium e dependências
-        run: npx playwright install --with-deps chromium
+      - name: Instalar navegadores e dependências
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Executar testes E2E
         run: npm run test:e2e

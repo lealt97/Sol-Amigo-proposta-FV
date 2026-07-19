@@ -171,6 +171,7 @@ Consulte também:
 - `docs/INTEGRITY_PHASE_2.md`
 - `docs/QUALITY_PHASE_3.md`
 - `docs/ENVIRONMENT_VARIABLES.md`
+- `docs/DISASTER_RECOVERY_RUNBOOK.md`
 - `docs/PROJECT_COMPLETION_CHECKLIST.md`
 
 ## Estado do projeto

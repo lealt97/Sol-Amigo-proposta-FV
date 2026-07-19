@@ -28,12 +28,6 @@ CREATE TABLE IF NOT EXISTS public.pdf_user_models (
 ALTER TABLE public.pdf_template_presets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pdf_user_models ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Presets are viewable by all users" ON public.pdf_template_presets;
-DROP POLICY IF EXISTS "Users can view their own models" ON public.pdf_user_models;
-DROP POLICY IF EXISTS "Users can insert their own models" ON public.pdf_user_models;
-DROP POLICY IF EXISTS "Users can update their own models" ON public.pdf_user_models;
-DROP POLICY IF EXISTS "Users can delete their own models" ON public.pdf_user_models;
-
 CREATE POLICY "Presets are viewable by all users" ON public.pdf_template_presets
   FOR SELECT USING (true);
 

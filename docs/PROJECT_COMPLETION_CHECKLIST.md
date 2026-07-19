@@ -68,7 +68,7 @@ Evidência de tamanho final: foi definida uma meta operacional de até 5 MiB par
 
 ### Banco, RLS e Storage
 
-- [ ] Aplicar todas as migrations em homologação
+- [x] Aplicar todas as migrations em homologação
 - [ ] Revisar RLS de todas as tabelas
 - [x] Confirmar isolamento de clientes, propostas, kits e configurações
 - [x] Confirmar isolamento de arquivos por usuário no Storage
@@ -76,6 +76,8 @@ Evidência de tamanho final: foi definida uma meta operacional de até 5 MiB par
 - [ ] Testar token público inválido, expirado e revogado
 - [ ] Testar backup e restauração do banco
 - [ ] Criar procedimento documentado de recuperação de desastre
+
+Evidência de migrations em homologação: como branches hospedadas do Supabase exigem plano Pro, a validação foi executada em um ambiente Supabase local, isolado e descartável no GitHub Actions, sem copiar dados reais nem alterar produção. A reconstrução do banco a partir do zero revelou que o esquema-base anterior ao versionamento não estava registrado no repositório; foram adicionadas migrations idempotentes para formalizar esse baseline e compatibilizar instalações existentes. O fluxo `db reset --local` aplicou todas as migrations na ordem, `migration list --local` confirmou o histórico e `db lint --local` concluiu a auditoria. O workflow publica relatório por 14 dias e encerra todos os containers ao final.
 
 ### Autenticação e MFA
 

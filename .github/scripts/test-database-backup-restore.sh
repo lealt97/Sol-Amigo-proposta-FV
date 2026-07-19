@@ -13,6 +13,8 @@ BEFORE_FILE="${REPORT_DIR}/fingerprint-before.txt"
 REMOVED_FILE="${REPORT_DIR}/fingerprint-after-removal.txt"
 AFTER_FILE="${REPORT_DIR}/fingerprint-after-restore.txt"
 DB_CONTAINER="${DB_CONTAINER:-$(docker ps --filter 'name=^/supabase_db_' --format '{{.Names}}' | head -n 1)}"
+LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD:-$(docker exec "${DB_CONTAINER}" printenv POSTGRES_PASSWORD 2>/dev/null || true)}"
+LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD:-postgres}"
 
 mkdir -p "${REPORT_DIR}"
 test -n "${DB_CONTAINER}"
@@ -115,12 +117,12 @@ docker exec "${DB_CONTAINER}" sh -lc \
 
 {
   printf '%s\n' '--- auth: supabase_auth_admin ---'
-  docker exec "${DB_CONTAINER}" pg_restore \
-    --username=postgres \
+  docker exec -e PGPASSWORD="${LOCAL_DB_PASSWORD}" "${DB_CONTAINER}" pg_restore \
+    --host=127.0.0.1 \
+    --username=supabase_auth_admin \
     --dbname=postgres \
     --data-only \
     --disable-triggers \
-    --role=supabase_auth_admin \
     --no-owner \
     --no-privileges \
     --exit-on-error \
@@ -128,12 +130,12 @@ docker exec "${DB_CONTAINER}" sh -lc \
     "${CONTAINER_BACKUP_FILE}"
 
   printf '%s\n' '--- public: postgres ---'
-  docker exec "${DB_CONTAINER}" pg_restore \
+  docker exec -e PGPASSWORD="${LOCAL_DB_PASSWORD}" "${DB_CONTAINER}" pg_restore \
+    --host=127.0.0.1 \
     --username=postgres \
     --dbname=postgres \
     --data-only \
     --disable-triggers \
-    --role=postgres \
     --no-owner \
     --no-privileges \
     --exit-on-error \
@@ -141,12 +143,12 @@ docker exec "${DB_CONTAINER}" sh -lc \
     "${CONTAINER_BACKUP_FILE}"
 
   printf '%s\n' '--- storage: supabase_storage_admin ---'
-  docker exec "${DB_CONTAINER}" pg_restore \
-    --username=postgres \
+  docker exec -e PGPASSWORD="${LOCAL_DB_PASSWORD}" "${DB_CONTAINER}" pg_restore \
+    --host=127.0.0.1 \
+    --username=supabase_storage_admin \
     --dbname=postgres \
     --data-only \
     --disable-triggers \
-    --role=supabase_storage_admin \
     --no-owner \
     --no-privileges \
     --exit-on-error \
@@ -247,7 +249,7 @@ backup_sha256=$(sha256sum "${BACKUP_FILE}" | awk '{print $1}')
 fixture_tables=$(wc -l < "${BEFORE_FILE}" | tr -d ' ')
 storage_scope=database_metadata_only
 postgres_tools_source=supabase_database_container
-restore_roles=supabase_auth_admin,postgres,supabase_storage_admin
+restore_connections=supabase_auth_admin,postgres,supabase_storage_admin
 EOF
 
 cat "${REPORT_DIR}/summary.txt"

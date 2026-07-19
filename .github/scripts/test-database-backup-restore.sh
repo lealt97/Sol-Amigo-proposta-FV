@@ -122,12 +122,14 @@ docker exec "${DB_CONTAINER}" sh -lc \
     --username=supabase_auth_admin \
     --dbname=postgres \
     --data-only \
-    --disable-triggers \
     --no-owner \
     --no-privileges \
     --exit-on-error \
     --use-list="${AUTH_LIST}" \
     "${CONTAINER_BACKUP_FILE}"
+
+  printf '%s\n' '--- remover perfil automático criado pelo gatilho de auth ---'
+  psql_cmd -c "delete from public.profiles where id = 'b1000000-0000-4000-8000-000000000001'"
 
   printf '%s\n' '--- public: postgres ---'
   docker exec -e PGPASSWORD="${LOCAL_DB_PASSWORD}" "${DB_CONTAINER}" pg_restore \
@@ -135,7 +137,6 @@ docker exec "${DB_CONTAINER}" sh -lc \
     --username=postgres \
     --dbname=postgres \
     --data-only \
-    --disable-triggers \
     --no-owner \
     --no-privileges \
     --exit-on-error \
@@ -148,7 +149,6 @@ docker exec "${DB_CONTAINER}" sh -lc \
     --username=supabase_storage_admin \
     --dbname=postgres \
     --data-only \
-    --disable-triggers \
     --no-owner \
     --no-privileges \
     --exit-on-error \
@@ -250,6 +250,7 @@ fixture_tables=$(wc -l < "${BEFORE_FILE}" | tr -d ' ')
 storage_scope=database_metadata_only
 postgres_tools_source=supabase_database_container
 restore_connections=supabase_auth_admin,postgres,supabase_storage_admin
+triggers=active
 EOF
 
 cat "${REPORT_DIR}/summary.txt"

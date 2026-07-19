@@ -89,7 +89,7 @@ test('interface exige salvar os códigos e oferece recuperação no desafio MFA'
   assert.match(challenge, /Usar código e remover MFA/);
 });
 
-test('homologação executa o teste SQL e a função valida o JWT manualmente', async () => {
+test('homologação executa o teste SQL e o gateway e a função validam o JWT', async () => {
   const [workflow, config, sqlTest] = await Promise.all([
     readFile(WORKFLOW_PATH, 'utf8'),
     readFile(CONFIG_PATH, 'utf8'),
@@ -98,7 +98,7 @@ test('homologação executa o teste SQL e a função valida o JWT manualmente', 
 
   assert.match(workflow, /Testar códigos de recuperação MFA/);
   assert.match(workflow, /supabase\/tests\/mfa_recovery_codes\.sql/);
-  assert.match(config, /\[functions\.mfa-recovery\]\s+verify_jwt = false/s);
+  assert.match(config, /\[functions\.mfa-recovery\]\s+verify_jwt = true/s);
   assert.match(sqlTest, /count\(\*\) = 10/);
   assert.match(sqlTest, /o mesmo código foi aceito mais de uma vez/);
   assert.match(sqlTest, /sessão AAL1 conseguiu gerar códigos/);

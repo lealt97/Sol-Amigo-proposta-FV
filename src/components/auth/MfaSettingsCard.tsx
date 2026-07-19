@@ -36,6 +36,8 @@ interface MfaSettingsCardProps {
 
 const codeInputClassName =
   'w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-center text-lg font-semibold tracking-[0.35em] text-brand-dark outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue disabled:cursor-not-allowed disabled:opacity-60';
+const passwordInputClassName =
+  'w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-sm text-brand-dark outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue disabled:cursor-not-allowed disabled:opacity-60';
 const pendingFactorStoragePrefix = 'solamigo:mfa-pending-factor:';
 
 function normalizeQrCode(qrCode: string) {
@@ -57,6 +59,10 @@ function readableMfaError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || '');
   const normalized = message.toLowerCase();
   const code = getErrorCode(error);
+
+  if (code === 'invalid_credentials' || normalized.includes('invalid login credentials')) {
+    return 'A senha atual está incorreta.';
+  }
 
   if (code === 'mfa_totp_enroll_not_enabled' || normalized.includes('totp enroll not enabled')) {
     return 'O cadastro de MFA por aplicativo autenticador está desativado no projeto Supabase. Ative TOTP em Authentication > Multi-Factor Authentication.';
@@ -169,6 +175,7 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
   const [verifiedFactors, setVerifiedFactors] = useState<TotpFactor[]>([]);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
+  const [disablePassword, setDisablePassword] = useState('');
   const [disableCode, setDisableCode] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
@@ -236,6 +243,7 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
   const startEnrollment = async () => {
     setErrorMessage(null);
     setConfirmDisable(false);
+    setDisablePassword('');
     setDisableCode('');
     setIsWorking(true);
 
@@ -333,12 +341,18 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
     setErrorMessage(null);
     setEnrollment(null);
     setVerificationCode('');
+    setDisablePassword('');
     setDisableCode('');
     setConfirmDisable(true);
   };
 
   const disableMfa = async () => {
     if (!verifiedFactors.length) return;
+
+    if (!disablePassword) {
+      setErrorMessage('Digite sua senha atual para confirmar a desativação do MFA.');
+      return;
+    }
 
     const code = disableCode.replace(/\D/g, '');
     if (code.length !== 6) {
@@ -350,6 +364,20 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
     setIsWorking(true);
 
     try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const email = userData.user?.email;
+      if (!email) {
+        throw new Error('Não foi possível identificar o e-mail autenticado da conta.');
+      }
+
+      const passwordConfirmation = await supabase.auth.signInWithPassword({
+        email,
+        password: disablePassword,
+      });
+      if (passwordConfirmation.error) throw passwordConfirmation.error;
+
       await challengeAndVerifyFactor(verifiedFactors[0].id, code);
 
       const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -377,6 +405,7 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
     } catch (error) {
       setErrorMessage(readableMfaError(error));
     } finally {
+      setDisablePassword('');
       setIsWorking(false);
     }
   };
@@ -456,9 +485,25 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
                 <div>
                   <p className="text-sm font-semibold">Desativar a proteção em duas etapas?</p>
                   <p className="mt-1 text-xs leading-relaxed">
-                    Digite o código atual do aplicativo autenticador para confirmar. A conta voltará a depender apenas da senha.
+                    Confirme sua senha atual e o código do aplicativo autenticador. A conta voltará a depender apenas da senha.
                   </p>
                 </div>
+              </div>
+
+              <div>
+                <label htmlFor="mfa-disable-password" className="mb-2 block text-xs font-medium text-amber-950">
+                  Senha atual
+                </label>
+                <input
+                  id="mfa-disable-password"
+                  type="password"
+                  autoComplete="current-password"
+                  autoFocus
+                  disabled={isWorking}
+                  value={disablePassword}
+                  onChange={(event) => setDisablePassword(event.target.value)}
+                  className={passwordInputClassName}
+                />
               </div>
 
               <div>
@@ -471,7 +516,6 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   maxLength={6}
-                  autoFocus
                   disabled={isWorking}
                   value={disableCode}
                   onChange={(event) => setDisableCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -487,6 +531,7 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
                   disabled={isWorking}
                   onClick={() => {
                     setConfirmDisable(false);
+                    setDisablePassword('');
                     setDisableCode('');
                     setErrorMessage(null);
                   }}
@@ -496,7 +541,7 @@ export function MfaSettingsCard({ userId, profile, onProfileChange }: MfaSetting
                 <Button
                   type="button"
                   variant="destructive"
-                  disabled={isWorking || disableCode.length !== 6}
+                  disabled={isWorking || !disablePassword || disableCode.length !== 6}
                   onClick={() => void disableMfa()}
                   className="gap-2"
                 >

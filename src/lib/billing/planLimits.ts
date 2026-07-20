@@ -27,33 +27,33 @@ export const PLAN_LIMITS: Readonly<Record<CommercialPlanCode, PlanLimits>> = {
   pro: PRO_PLAN_LIMITS,
 };
 
+function assertNonNegativeFinite(value: number, label: string): void {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new RangeError(`${label} precisa ser um número finito maior ou igual a zero.`);
+  }
+}
+
 export function getPlanLimits(planCode: CommercialPlanCode): PlanLimits {
   return PLAN_LIMITS[planCode];
 }
 
 export function getRemainingQuota(used: number, limit: number): number {
-  if (!Number.isFinite(used) || used < 0) {
-    throw new RangeError('O uso precisa ser um número finito maior ou igual a zero.');
-  }
-
-  if (!Number.isFinite(limit) || limit < 0) {
-    throw new RangeError('O limite precisa ser um número finito maior ou igual a zero.');
-  }
-
+  assertNonNegativeFinite(used, 'O uso');
+  assertNonNegativeFinite(limit, 'O limite');
   return Math.max(0, limit - used);
 }
 
 export function hasQuotaForIncrement(used: number, increment: number, limit: number): boolean {
-  if (!Number.isFinite(increment) || increment < 0) {
-    throw new RangeError('O incremento precisa ser um número finito maior ou igual a zero.');
-  }
-
+  assertNonNegativeFinite(increment, 'O incremento');
   return getRemainingQuota(used, limit) >= increment;
 }
 
 export function getUsagePercent(used: number, limit: number): number {
+  assertNonNegativeFinite(used, 'O uso');
+  assertNonNegativeFinite(limit, 'O limite');
+
   if (limit === 0) return used === 0 ? 0 : 100;
-  return Math.min(100, Math.max(0, (used / limit) * 100));
+  return Math.min(100, (used / limit) * 100);
 }
 
 export function shouldWarnAboutUsage(used: number, limit: number): boolean {

@@ -26,7 +26,7 @@ import { ProposalWizard } from "./pages/propostas/ProposalWizard";
 import { ProposalDetailsRoute } from "./components/proposals/ProposalDetailsRoute";
 import { DesignPdf } from "./pages/design-pdf/DesignPdf";
 import { PublicProposal } from "./pages/public/PublicProposal";
-import { Configuracoes } from "./pages/Configuracoes";
+import { SettingsRoute } from "./pages/SettingsRoute";
 import { SolarKitCatalog } from "./pages/kits/SolarKitCatalog";
 import { Plans } from "./pages/Plans";
 import { BillingCheckout } from "./pages/BillingCheckout";
@@ -80,7 +80,7 @@ export default function App() {
               <Route path="kits-solares" element={<SolarKitCatalog />} />
               <Route path="design-pdf" element={<DesignPdf />} />
               <Route path="checkout" element={<BillingCheckout />} />
-              <Route path="configuracoes" element={<Configuracoes />} />
+              <Route path="configuracoes" element={<SettingsRoute />} />
               <Route path="privacidade-dados" element={<AccountData />} />
               <Route element={<AdminRoute />}>
                 <Route path="admin" element={<AdminDashboard />} />

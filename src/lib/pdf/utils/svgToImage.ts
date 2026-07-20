@@ -1,5 +1,6 @@
 import { PdfUserModel } from '../../../types/pdfModels';
 import { pdfModelService } from '../../../services/pdfModelService';
+import { resolveStorageAssetUrl } from '../../storage/privateAsset';
 import { buildCoverSvg } from './coverSvgEngine';
 import { extractActiveLogo } from '../../../utils/logoHelper';
 
@@ -9,6 +10,7 @@ async function urlToBase64(url: string | null | undefined) {
 
   try {
     const response = await fetch(url);
+    if (!response.ok) throw new Error(`asset_http_${response.status}`);
     const blob = await response.blob();
     return new Promise<string>((resolve) => {
       const reader = new FileReader();
@@ -16,7 +18,7 @@ async function urlToBase64(url: string | null | undefined) {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error('Erro ao carregar imagem para capa do PDF:', url, error);
+    console.error('Erro ao carregar imagem para capa do PDF:', error);
     return null;
   }
 }
@@ -48,7 +50,7 @@ function svgToPngDataUrl(svgText: string): Promise<string> {
     const url = URL.createObjectURL(svgBlob);
     const img = new Image();
     img.crossOrigin = 'Anonymous';
-    
+
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = size.width;
@@ -65,12 +67,12 @@ function svgToPngDataUrl(svgText: string): Promise<string> {
       URL.revokeObjectURL(url);
       resolve(pngUrl);
     };
-    
+
     img.onerror = () => {
       URL.revokeObjectURL(url);
       reject(new Error('Failed to load SVG into image'));
     };
-    
+
     img.src = url;
   });
 }
@@ -109,7 +111,8 @@ export async function generateSvgCoverImage(
     const resolvedRawLogo = model.logo_url || proposal.profile?.logo_url || proposal.company?.logo_url || null;
     const activeLogo = extractActiveLogo(resolvedRawLogo);
     const logoUrl = await urlToBase64(activeLogo);
-    const coverImageUrl = await urlToBase64(model.cover_image_url);
+    const privateCoverUrl = await resolveStorageAssetUrl(model.cover_image_url, 900);
+    const coverImageUrl = await urlToBase64(privateCoverUrl);
     const generationDate = new Date().toLocaleDateString('pt-BR');
 
     const finalSvg = buildCoverSvg(

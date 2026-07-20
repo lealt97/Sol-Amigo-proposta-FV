@@ -27,24 +27,24 @@ O plano Gratuito permanece como plano permanente de entrada, e não como teste q
 
 ### Pro mensal
 
-- preço: **R$ 79,90 por mês**;
+- preço: **R$ 100,00 por mês**;
 - cobrança: recorrente mensal;
 - compromisso: sem fidelidade mínima além do período já pago;
 - objetivo: atender profissionais e pequenas integradoras que preferem menor desembolso inicial.
 
 ### Pro anual
 
-- preço: **R$ 799,00 por ano**;
+- preço: **R$ 1.000,00 por ano**;
 - cobrança: valor integral antecipado para doze meses;
-- equivalente mensal informativo: **R$ 66,58**;
-- economia comparada a doze mensalidades: **R$ 159,80**;
+- equivalente mensal informativo: **R$ 83,33**;
+- economia comparada a doze mensalidades: **R$ 200,00**;
 - desconto efetivo: aproximadamente **16,7%**, equivalente a dois meses do plano mensal.
 
 O anual é uma forma de cobrança do mesmo produto Pro. Ele não cria um conjunto diferente de funcionalidades nem um papel de autorização separado.
 
 ## Posicionamento
 
-O preço mensal de R$ 79,90 posiciona o SolAmigo entre ferramentas básicas de baixo custo e plataformas completas com CRM, equipes e operação pós-venda. A decisão considera que o produto já entrega dimensionamento, cálculo financeiro, gestão de clientes e propostas, personalização visual, PDFs profissionais e fluxo público de aprovação.
+O preço mensal de R$ 100,00 posiciona o SolAmigo como uma ferramenta profissional acessível, acima das soluções básicas de baixo custo e abaixo de plataformas completas com equipes, operação pós-venda e contratos empresariais. A decisão considera que o produto já entrega dimensionamento, cálculo financeiro, gestão de clientes e propostas, personalização visual, PDFs profissionais e fluxo público de aprovação.
 
 A estrutura simples evita lançar diversos níveis antes de conhecer o comportamento real de uso. Planos adicionais, como Equipe ou Enterprise, somente devem ser criados após evidência de demanda e requisitos claros de múltiplos usuários, permissões, suporte ou integrações.
 
@@ -56,7 +56,7 @@ A estrutura simples evita lançar diversos níveis antes de conhecer o comportam
 4. O plano anual é pré-pago e concede doze meses de acesso Pro.
 5. Cupons e preços promocionais não alteram o código do plano e não devem ser codificados como planos permanentes.
 6. IDs de preço do provedor de pagamentos ficam em configuração protegida por ambiente, e não neste catálogo público.
-7. A interface pode exibir o equivalente mensal do anual, mas o checkout deve informar claramente que a cobrança é de R$ 799,00 à vista para o período anual.
+7. A interface pode exibir o equivalente mensal do anual, mas o checkout deve informar claramente que a cobrança é de R$ 1.000,00 à vista para o período anual.
 8. Alterações futuras de preço não mudam silenciosamente uma assinatura já contratada; a política de renovação e comunicação será definida antes do lançamento comercial.
 9. Nenhum bloqueio de recurso pode depender somente do frontend. O servidor deverá consultar assinatura, período e uso.
 10. O plano Gratuito não deve ser apresentado como “grátis para sempre” até a Política Comercial e os Termos de Uso aprovarem essa promessa.
@@ -78,7 +78,7 @@ Uma revisão não exige criar novos planos. A primeira opção deve ser ajustar 
 A fonte de verdade versionada dos valores está em `src/lib/billing/planCatalog.ts`:
 
 - Gratuito: `0` centavos;
-- Pro mensal: `7_990` centavos;
-- Pro anual: `79_900` centavos.
+- Pro mensal: `10_000` centavos;
+- Pro anual: `100_000` centavos.
 
 A integração de cobrança deve importar ou reproduzir esse catálogo no servidor e comparar o preço recebido do provedor com o produto e intervalo esperados. Nunca deve confiar em preço enviado pelo navegador.

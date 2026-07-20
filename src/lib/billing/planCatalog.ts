@@ -33,7 +33,7 @@ export const FREE_PLAN: FreePlanDefinition = {
 export const PRO_MONTHLY: PaidPlanOption = {
   planCode: PRO_PLAN_CODE,
   billingInterval: 'month',
-  priceCents: 7_990,
+  priceCents: 10_000,
   currency: BILLING_CURRENCY,
   prepaid: false,
 };
@@ -41,7 +41,7 @@ export const PRO_MONTHLY: PaidPlanOption = {
 export const PRO_ANNUAL: PaidPlanOption = {
   planCode: PRO_PLAN_CODE,
   billingInterval: 'year',
-  priceCents: 79_900,
+  priceCents: 100_000,
   currency: BILLING_CURRENCY,
   prepaid: true,
 };

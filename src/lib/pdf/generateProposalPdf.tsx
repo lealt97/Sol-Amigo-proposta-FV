@@ -4,6 +4,7 @@ import { ProposalDocument } from '../../components/pdf/ProposalDocument';
 import { Proposal } from '../../types/proposal';
 import { PdfUserModel } from '../../types/pdfModels';
 import { supabase } from '../supabase/client';
+import { resolveStorageAssetUrl } from '../storage/privateAsset';
 import { pdfModelService } from '../../services/pdfModelService';
 import { generateSvgCoverImage } from './utils/svgToImage';
 import {
@@ -71,11 +72,22 @@ async function enrichProposalForPdf(proposal: Proposal): Promise<Proposal> {
     console.warn('Could not enrich PDF proposal solar data', solarError);
   }
 
+  const privateRoofImage = proposal.roof_image_url || proposal.roof_photo_url || proposal.roof_plan_image_url;
+  if (privateRoofImage) {
+    try {
+      enrichedProposal.roof_image_url = await resolveStorageAssetUrl(privateRoofImage, 900);
+    } catch (roofImageError) {
+      console.warn('Could not authorize private roof image for PDF generation', roofImageError);
+      enrichedProposal.roof_image_url = null;
+    }
+  }
+
   return enrichedProposal;
 }
 
 function buildSecurePdfUrl(publicToken: string): string {
   const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+  if (!supabaseUrl) throw new Error('VITE_SUPABASE_URL não configurada para gerar o link seguro.');
   return `${supabaseUrl}/functions/v1/public-proposal-pdf?token=${encodeURIComponent(publicToken)}`;
 }
 
@@ -142,40 +154,12 @@ async function persistProposalPdfMetadata(input: PdfMetadataInput): Promise<stri
     })
     .eq('id', input.proposalId);
 
-  if (!updateError) return input.secureUrl;
+  if (updateError) {
+    console.error('Secure PDF metadata update failed', updateError);
+    throw new Error('Não foi possível registrar o PDF privado. O arquivo público não será usado como alternativa.');
+  }
 
-  console.warn(
-    'Modern update failed, attempting fallback update without pdf_storage_path:',
-    updateError,
-  );
-
-  const { data: urlData } = supabase.storage
-    .from('proposals')
-    .getPublicUrl(input.storagePath);
-  const fallbackUrl = urlData?.publicUrl || input.secureUrl;
-
-  const { error: fallbackTokenError } = await supabase
-    .from('proposals')
-    .update({
-      public_token: input.publicToken,
-      pdf_url: fallbackUrl,
-    })
-    .eq('id', input.proposalId);
-
-  if (!fallbackTokenError) return fallbackUrl;
-
-  console.warn(
-    'Update with public_token failed, trying fallback with only pdf_url:',
-    fallbackTokenError,
-  );
-
-  const { error: fallbackUrlOnlyError } = await supabase
-    .from('proposals')
-    .update({ pdf_url: fallbackUrl })
-    .eq('id', input.proposalId);
-
-  if (fallbackUrlOnlyError) throw fallbackUrlOnlyError;
-  return fallbackUrl;
+  return input.secureUrl;
 }
 
 const pdfGenerationOperations = createPdfGenerationOperations(

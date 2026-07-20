@@ -35,6 +35,9 @@ jobs:
       - name: Verificar TypeScript completo
         run: npm run typecheck
 
+      - name: Validar contratos da fundação de cobrança
+        run: npx tsx --test tests/billing-foundation.test.ts
+
       - name: Executar testes automatizados
         run: npm run test
 

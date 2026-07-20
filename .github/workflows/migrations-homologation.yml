@@ -148,6 +148,15 @@ jobs:
             -f supabase/tests/proposal_quota_enforcement.sql \
             2>&1 | tee migration-report/proposal-quota-enforcement.txt
 
+      - name: Testar checkout e eventos idempotentes
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f supabase/tests/billing_checkout_webhooks.sql \
+            2>&1 | tee migration-report/billing-checkout-webhooks.txt
+
       - name: Testar provedores de pagamento
         shell: bash
         run: |

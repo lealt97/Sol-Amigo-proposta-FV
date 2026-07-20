@@ -52,6 +52,8 @@ test('valores inválidos são rejeitados antes da decisão de cota', () => {
   assert.throws(() => getRemainingQuota(Number.NaN, 5), RangeError);
   assert.throws(() => getRemainingQuota(1, -5), RangeError);
   assert.throws(() => hasQuotaForIncrement(1, -1, 5), RangeError);
+  assert.throws(() => getUsagePercent(-1, 5), RangeError);
+  assert.throws(() => getUsagePercent(1, Number.NaN), RangeError);
 });
 
 test('aviso começa em 80% e percentual é limitado a 100%', () => {

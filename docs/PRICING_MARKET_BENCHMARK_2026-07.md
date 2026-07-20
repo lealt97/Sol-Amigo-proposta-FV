@@ -23,9 +23,9 @@ Este registro sustenta a hipótese comercial inicial do SolAmigo. Os valores for
 O SolAmigo começará com uma estrutura mais simples:
 
 - Gratuito: R$ 0,00;
-- Pro mensal: R$ 79,90;
-- Pro anual: R$ 799,00, equivalente a dez mensalidades.
+- Pro mensal: R$ 100,00;
+- Pro anual: R$ 1.000,00, equivalente a dez mensalidades.
 
-O objetivo não é ser a ferramenta mais barata, mas oferecer uma entrada acessível mantendo espaço para custos de infraestrutura, suporte, armazenamento e evolução do produto. A hipótese será revisada após o beta com 5 a 10 integradores e dados reais de uso e conversão.
+O objetivo não é ser a ferramenta mais barata, mas oferecer uma solução profissional com preço acessível, mantendo espaço para custos de infraestrutura, suporte, armazenamento e evolução do produto. A hipótese será revisada após o beta com 5 a 10 integradores e dados reais de uso e conversão.
 
 Este benchmark é informativo. A fonte de verdade do produto permanece em `src/lib/billing/planCatalog.ts` e `docs/PRICING_AND_PLANS.md`.

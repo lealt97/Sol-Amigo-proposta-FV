@@ -77,8 +77,10 @@ as $$
 declare
   v_subscription_id uuid;
   v_event_id uuid;
-  v_effective_plan text;
-  v_effective_interval text;
+  v_subscription_plan text;
+  v_subscription_interval text;
+  v_entitlement_plan text;
+  v_entitlement_interval text;
   v_period_start date;
 begin
   if p_provider not in ('cakto', 'stripe') then
@@ -140,25 +142,35 @@ begin
   end if;
 
   if p_status is not null then
-    if p_status in ('active', 'trialing', 'past_due') and p_billing_interval in ('month', 'year') then
-      v_effective_plan := 'pro';
-      v_effective_interval := p_billing_interval;
+    if p_billing_interval in ('month', 'year') then
+      v_subscription_plan := 'pro';
+      v_subscription_interval := p_billing_interval;
     else
-      v_effective_plan := 'free';
-      v_effective_interval := 'free';
+      v_subscription_plan := 'free';
+      v_subscription_interval := 'free';
+    end if;
+
+    if p_status in ('active', 'trialing')
+       or (
+         p_status = 'past_due'
+         and p_grace_period_ends_at is not null
+         and p_grace_period_ends_at > now()
+       ) then
+      v_entitlement_plan := v_subscription_plan;
+      v_entitlement_interval := v_subscription_interval;
+    else
+      v_entitlement_plan := 'free';
+      v_entitlement_interval := 'free';
     end if;
 
     update public.subscriptions subscription
-    set plan_code = v_effective_plan,
-        billing_interval = case
-          when v_effective_plan = 'pro' then v_effective_interval
+    set plan_code = v_subscription_plan,
+        billing_interval = v_subscription_interval,
+        status = case
+          when v_subscription_plan = 'pro' then p_status
           else 'free'
         end,
-        status = case
-          when v_effective_plan = 'pro' then p_status
-          else case when p_status = 'canceled' then 'canceled' else 'free' end
-        end,
-        provider = case when v_effective_plan = 'pro' or p_status = 'canceled' then p_provider else null end,
+        provider = case when v_subscription_plan = 'pro' then p_provider else null end,
         provider_customer_id = coalesce(p_provider_customer_id, subscription.provider_customer_id),
         provider_subscription_id = coalesce(p_provider_subscription_id, subscription.provider_subscription_id),
         current_period_start = coalesce(p_current_period_start, subscription.current_period_start),
@@ -177,11 +189,8 @@ begin
     v_period_start := date_trunc('month', timezone('America/Sao_Paulo', now()))::date;
 
     update public.account_usage usage
-    set plan_code = v_effective_plan,
-        billing_interval = case
-          when v_effective_plan = 'pro' then v_effective_interval
-          else 'free'
-        end,
+    set plan_code = v_entitlement_plan,
+        billing_interval = v_entitlement_interval,
         version = usage.version + 1,
         updated_at = now()
     where usage.account_id = p_account_id

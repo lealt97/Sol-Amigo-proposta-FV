@@ -103,8 +103,12 @@ security definer
 set search_path = public, pg_temp
 as $$
   select case
-    when p_billing_interval = 'year' then plan.annual_proposals_per_month
-    when p_billing_interval in ('free', 'month') then plan.proposals_per_month
+    when plan.code = 'free' and p_billing_interval = 'free'
+      then plan.proposals_per_month
+    when plan.code <> 'free' and p_billing_interval = 'month'
+      then plan.proposals_per_month
+    when plan.code <> 'free' and p_billing_interval = 'year'
+      then plan.annual_proposals_per_month
     else null
   end
   from public.billing_plans plan

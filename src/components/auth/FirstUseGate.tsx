@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { firstUseService } from '../../services/firstUseService';
+import type { Profile } from '../../types/profile';
+
+const ASSUMED_ACCEPTED_LEGAL_STATUS = { complete: true, documents: [] };
 
 export function FirstUseGate() {
   const { user } = useAuth();
-  const location = useLocation();
   const [isChecking, setIsChecking] = useState(true);
   const [isOperationallyComplete, setIsOperationallyComplete] = useState(false);
   const [checkFailed, setCheckFailed] = useState(false);
+  const invalidationInFlight = useRef(false);
 
   const checkCurrentStatus = useCallback(async () => {
     if (!user) return;
@@ -44,16 +47,41 @@ export function FirstUseGate() {
 
   useEffect(() => {
     void checkCurrentStatus();
-  }, [checkCurrentStatus, location.pathname, location.search]);
+  }, [checkCurrentStatus]);
 
   useEffect(() => {
-    const handleProfileUpdated = () => {
-      void checkCurrentStatus();
+    const handleProfileUpdated = async (event: Event) => {
+      if (!user || invalidationInFlight.current) return;
+
+      const profile = (event as CustomEvent<Profile>).detail;
+      if (!profile) return;
+
+      const profileStatus = firstUseService.buildStatus(profile, ASSUMED_ACCEPTED_LEGAL_STATUS);
+      const requiredProfileDataComplete = profileStatus.company_complete
+        && profileStatus.responsible_complete
+        && profileStatus.identity_complete;
+
+      if (requiredProfileDataComplete) return;
+
+      try {
+        invalidationInFlight.current = true;
+        setIsChecking(true);
+        await firstUseService.invalidateCompletion();
+        setCheckFailed(false);
+        setIsOperationallyComplete(false);
+      } catch (error) {
+        console.error('Erro ao regredir a configuração obrigatória da conta:', error);
+        setCheckFailed(true);
+        setIsOperationallyComplete(false);
+      } finally {
+        invalidationInFlight.current = false;
+        setIsChecking(false);
+      }
     };
 
     window.addEventListener('solamigo:profile-updated', handleProfileUpdated);
     return () => window.removeEventListener('solamigo:profile-updated', handleProfileUpdated);
-  }, [checkCurrentStatus]);
+  }, [user]);
 
   if (!user) return null;
 

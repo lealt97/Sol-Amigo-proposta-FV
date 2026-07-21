@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { FileText, LayoutDashboard, LogOut, Menu, Package, PenTool, Settings, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { FileText, LayoutDashboard, LogOut, Menu, Package, PenTool, Settings, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { AnimatedNavbarLogo } from "./brand/AnimatedNavbarLogo";
 import { profileService } from "../services/profileService";
@@ -78,7 +78,6 @@ export function Layout() {
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/primeiros-passos', label: 'Primeiros Passos', icon: Sparkles },
     { path: '/clientes', label: 'Clientes', icon: Users },
     { path: '/propostas', label: 'Propostas', icon: FileText },
     { path: '/kits-solares', label: 'Kits Solares', icon: Package },

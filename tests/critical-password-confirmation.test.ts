@@ -52,8 +52,9 @@ test('exclusão completa exige frase, senha recente e limpeza de arquivos', asyn
     'os arquivos devem ser removidos antes de excluir o usuário',
   );
 
-  assert.match(settingsRoute, /Encerramento da Conta/);
-  assert.match(settingsRoute, /navigate\('\/privacidade-dados'\)/);
+  assert.match(settingsRoute, /<AccountData embedded \/>/);
+  assert.match(settingsRoute, /activeTab === 'seguranca'/);
+  assert.match(settingsRoute, /\/configuracoes\?tab=seguranca/);
 });
 
 test('desativação do MFA exige senha atual e TOTP na ordem correta', async () => {

@@ -25,7 +25,14 @@ export function FirstUseGate() {
       setIsChecking(true);
       setCheckFailed(false);
       const snapshot = await firstUseService.load(user);
-      setIsOperationallyComplete(snapshot.status.complete);
+
+      if (!snapshot.status.complete) {
+        await firstUseService.invalidateCompletion();
+        setIsOperationallyComplete(false);
+        return;
+      }
+
+      setIsOperationallyComplete(true);
     } catch (error) {
       console.error('Erro ao verificar configuração obrigatória da conta:', error);
       setCheckFailed(true);

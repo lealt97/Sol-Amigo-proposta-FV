@@ -52,18 +52,20 @@ test('toda conta sem conclusão registrada deve passar pelo primeiro uso', async
 });
 
 
-test('etapa 4 de 6 exige exatamente as três logos permitidas pela conta', async () => {
+test('etapa 4 de 6 permite continuar com uma logo e mantém limite máximo de três', async () => {
   const [wizard, service] = await Promise.all([read(WIZARD), read(SERVICE)]);
 
   assert.match(wizard, /Etapa \{currentStep \+ 1\} de \{STEPS\.length\}/);
-  assert.match(wizard, /Envie as 3 logos da empresa/);
-  assert.match(wizard, /A plataforma aceita no máximo/);
+  assert.match(wizard, /pelo menos 1 logo/);
+  assert.match(wizard, /no máximo/);
+  assert.match(wizard, /MIN_FIRST_USE_LOGOS/);
   assert.match(wizard, /MAX_ACCOUNT_LOGOS/);
-  assert.match(wizard, /logoCount === MAX_ACCOUNT_LOGOS/);
-  assert.match(wizard, /Faltam \$\{MAX_ACCOUNT_LOGOS - logoCount\}/);
-  assert.match(wizard, /Continuar com \$\{MAX_ACCOUNT_LOGOS\} logos/);
-  assert.doesNotMatch(wizard, /Continuar sem logo/);
-  assert.match(service, /extractAllLogos\(profile\.logo_url\)\.length === MAX_ACCOUNT_LOGOS/);
+  assert.match(wizard, /logoCount >= MIN_FIRST_USE_LOGOS/);
+  assert.match(wizard, /logoCount >= MAX_ACCOUNT_LOGOS/);
+  assert.match(wizard, /Após o primeiro upload, você já poderá continuar/);
+  assert.match(wizard, /currentStep === 3 && !hasMinimumLogo/);
+  assert.match(service, /MIN_FIRST_USE_LOGOS = 1/);
+  assert.match(service, /extractAllLogos\(profile\.logo_url\)\.length >= MIN_FIRST_USE_LOGOS/);
 });
 
 

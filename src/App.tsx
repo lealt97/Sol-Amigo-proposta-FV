@@ -30,7 +30,6 @@ import { SolarKitCatalog } from "./pages/kits/SolarKitCatalog";
 import { Plans } from "./pages/Plans";
 import { BillingCheckout } from "./pages/BillingCheckout";
 import { Onboarding } from "./pages/Onboarding";
-import { AccountData } from "./pages/AccountData";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { LegalDocumentPage } from "./pages/legal/LegalDocumentPage";
 
@@ -76,7 +75,7 @@ export default function App() {
               <Route path="design-pdf" element={<DesignPdf />} />
               <Route path="checkout" element={<BillingCheckout />} />
               <Route path="configuracoes" element={<SettingsRoute />} />
-              <Route path="privacidade-dados" element={<AccountData />} />
+              <Route path="privacidade-dados" element={<Navigate to="/configuracoes?tab=seguranca" replace />} />
               <Route element={<AdminRoute />}>
                 <Route path="admin" element={<AdminDashboard />} />
               </Route>

@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase/client';
 import { legalService, type LegalStatus } from './legalService';
 import { profileService } from './profileService';
 
-export const FIRST_USE_RELEASE_AT = '2026-07-21T14:00:00.000Z';
 export const FIRST_USE_VERSION = 1;
 
 export type FirstUseStatus = {
@@ -62,13 +61,10 @@ function metadataBoolean(user: User, key: string) {
 
 export const firstUseService = {
   requiresFirstUse(user: User) {
-    if (user.user_metadata?.first_use_completed_at) return false;
+    const completedAt = user.user_metadata?.first_use_completed_at;
+    const completedVersion = Number(user.user_metadata?.first_use_version || 0);
 
-    const createdAt = Date.parse(user.created_at || '');
-    const releaseAt = Date.parse(FIRST_USE_RELEASE_AT);
-    if (!Number.isFinite(createdAt)) return true;
-
-    return createdAt >= releaseAt;
+    return !completedAt || completedVersion < FIRST_USE_VERSION;
   },
 
   async load(user: User): Promise<FirstUseSnapshot> {

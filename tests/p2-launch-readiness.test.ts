@@ -17,6 +17,7 @@ const DELETE_FUNCTION = 'supabase/functions/account-delete/index.ts';
 const ADMIN_FUNCTION = 'supabase/functions/admin-console/index.ts';
 const ONBOARDING = 'src/pages/Onboarding.tsx';
 const ACCOUNT_DATA = 'src/pages/AccountData.tsx';
+const ACCOUNT_CLOSURE = 'src/pages/AccountClosure.tsx';
 const PROPOSAL_SERVICE = 'src/services/proposalService.ts';
 const PROPOSAL_LIST = 'src/pages/propostas/ProposalList.tsx';
 const CONFIG = 'supabase/config.toml';
@@ -83,10 +84,11 @@ test('exportação de dados é autenticada e exclui segredos do pacote', async (
 });
 
 test('exclusão completa exige senha recente e remove arquivos antes do usuário', async () => {
-  const [source, migration, accountPage, config] = await Promise.all([
+  const [source, migration, accountPage, closurePage, config] = await Promise.all([
     read(DELETE_FUNCTION),
     read(MIGRATION),
     read(ACCOUNT_DATA),
+    read(ACCOUNT_CLOSURE),
     read(CONFIG),
   ]);
 
@@ -97,8 +99,9 @@ test('exclusão completa exige senha recente e remove arquivos antes do usuário
   assert.ok(source.indexOf('removeStoragePaths') < source.lastIndexOf('admin.auth.admin.deleteUser'));
   assert.match(source, /admin\.auth\.admin\.deleteUser\(accountId, false\)/);
   assert.match(migration, /revoke execute on function public\.delete_user_account\(\)[\s\S]*from authenticated/);
-  assert.match(accountPage, /accountDataService\.deleteAccount\(\)/);
-  assert.match(accountPage, /excluir a conta/);
+  assert.match(accountPage, /accountDataService\.deleteAccount\(accessToken\)/);
+  assert.match(closurePage, /accountDataService\.deleteAccount\(accessToken\)/);
+  assert.match(closurePage, /excluir a conta/);
   assert.match(config, /\[functions\.account-delete\][\s\S]*verify_jwt = true/);
 });
 
@@ -160,12 +163,13 @@ test('Wizard e serviços de cálculo foram retirados das rotas e mutações', as
   assert.doesNotMatch(list, /Nova Proposta/);
 });
 
-test('privacidade e dados ficam unificados na aba Segurança', async () => {
-  const [app, layout, settingsRoute, accountData] = await Promise.all([
+test('privacidade e exportação ficam em Segurança e exclusão em Encerramento da Conta', async () => {
+  const [app, layout, settingsRoute, accountData, accountClosure] = await Promise.all([
     read(APP),
     read(LAYOUT),
     read(SETTINGS_ROUTE),
     read(ACCOUNT_DATA),
+    read(ACCOUNT_CLOSURE),
   ]);
 
   assert.match(app, /path="\/termos"/);
@@ -175,7 +179,10 @@ test('privacidade e dados ficam unificados na aba Segurança', async () => {
   assert.doesNotMatch(layout, /label: 'Privacidade e Dados'/);
   assert.match(settingsRoute, /activeTab === 'seguranca'/);
   assert.match(settingsRoute, /<AccountData embedded \/>/);
+  assert.match(settingsRoute, /activeTab === 'encerramento'/);
+  assert.match(settingsRoute, /<AccountClosure \/>/);
   assert.match(accountData, /embedded = false/);
-  assert.match(accountData, /Documentos legais, exportação e exclusão completa agora fazem parte das configurações de segurança/);
+  assert.match(accountData, /A exclusão definitiva fica em Encerramento da Conta/);
+  assert.match(accountClosure, /Excluir minha conta permanentemente/);
   assert.match(app, /path="admin" element={<AdminDashboard \/>}/);
 });

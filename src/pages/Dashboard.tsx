@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Eye, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ClientsCategoryIcon, ProposalsCategoryIcon } from '../components/icons/SolAmigoCategoryIcons';
 import { Card } from '../components/ui/Card';
 import { DeleteConfirmModal } from '../components/ui/DeleteConfirmModal';
 import { supabase } from '../lib/supabase/client';
@@ -67,8 +68,28 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card className="p-5"><p className="text-xs uppercase tracking-wider text-slate-500">Clientes cadastrados</p><p className="mt-2 text-3xl font-bold text-brand-dark">{clientCount}</p></Card>
-        <Card className="p-5"><p className="text-xs uppercase tracking-wider text-slate-500">Propostas históricas</p><p className="mt-2 text-3xl font-bold text-brand-dark">{proposalCount}</p></Card>
+        <Card className="p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-500">Clientes cadastrados</p>
+              <p className="mt-2 text-3xl font-bold text-brand-dark">{clientCount}</p>
+            </div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-gray-50">
+              <ClientsCategoryIcon className="h-8 w-8 text-brand-blue" />
+            </div>
+          </div>
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-500">Propostas históricas</p>
+              <p className="mt-2 text-3xl font-bold text-brand-dark">{proposalCount}</p>
+            </div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-gray-50">
+              <ProposalsCategoryIcon className="h-8 w-8 text-brand-blue" />
+            </div>
+          </div>
+        </Card>
       </div>
 
       <Card className="overflow-hidden">

@@ -32,6 +32,9 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Verificar higiene do repositório
+        run: npm run check:repo
+
       - name: Verificar TypeScript completo
         run: npm run typecheck
 

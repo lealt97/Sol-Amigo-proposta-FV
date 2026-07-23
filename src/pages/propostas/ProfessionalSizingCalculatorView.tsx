@@ -20,6 +20,7 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { technicalNumber as number } from '../../lib/formatters/technicalNumber';
 import {
   buildMonthlyConsumptionSeries,
   calculateLoadMonthlyConsumptionKwh,
@@ -50,8 +51,6 @@ const STEPS = [
   { id: 'irradiation', title: 'Irradiação e potência' },
   { id: 'kit', title: 'Kit e resultado' },
 ] as const;
-
-const number = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
 
 const parseNumber = (value: string) => {
   const normalized = value.trim().replace(',', '.');

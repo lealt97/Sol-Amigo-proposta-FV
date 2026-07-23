@@ -20,6 +20,8 @@ const ACCOUNT_DATA = 'src/pages/AccountData.tsx';
 const ACCOUNT_CLOSURE = 'src/pages/AccountClosure.tsx';
 const PROPOSAL_SERVICE = 'src/services/proposalService.ts';
 const PROPOSAL_LIST = 'src/pages/propostas/ProposalList.tsx';
+const SIZING_CALCULATOR = 'src/pages/propostas/ProfessionalSizingCalculator.tsx';
+const SIZING_ENGINE = 'src/lib/calculations/professionalSizing.ts';
 const CONFIG = 'supabase/config.toml';
 
 const extractTableDefinition = (migration: string, tableName: string) => {
@@ -145,22 +147,32 @@ test('onboarding não depende mais de proposta ou cálculo', async () => {
   assert.ok(app.includes('<Route path="/primeiros-passos" element={<FirstUseRoute />} />'));
 });
 
-test('Wizard e serviços de cálculo foram retirados das rotas e mutações', async () => {
-  const [app, service, list] = await Promise.all([
+test('dimensionamento usa consumo, HSP e kit cadastrado sem reativar mutações antigas', async () => {
+  const [app, service, list, calculator, engine] = await Promise.all([
     read(APP),
     read(PROPOSAL_SERVICE),
     read(PROPOSAL_LIST),
+    read(SIZING_CALCULATOR),
+    read(SIZING_ENGINE),
   ]);
 
   assert.doesNotMatch(app, /ProposalWizard/);
-  assert.match(app, /path="propostas\/nova" element=\{null\}/);
+  assert.match(app, /path="propostas\/nova" element=\{<ProfessionalSizingCalculator \/>\}/);
   assert.match(app, /path="propostas\/:id\/editar" element=\{null\}/);
-  assert.doesNotMatch(service, /lib\/calculations/);
   assert.doesNotMatch(service, /createProposal/);
   assert.doesNotMatch(service, /updateProposal/);
   assert.doesNotMatch(service, /duplicateProposal/);
-  assert.match(list, /Gerador de propostas removido/);
-  assert.doesNotMatch(list, /Nova Proposta/);
+  assert.match(list, /Novo dimensionamento/);
+  assert.match(calculator, /solarKitService\.getActiveKits\(\)/);
+  assert.match(calculator, /CRESESB\/SunData/);
+  assert.match(calculator, /Tipo de ligação/);
+  assert.match(calculator, /Rendimento global/);
+  assert.match(calculator, /Kit solar/);
+  assert.doesNotMatch(calculator, /Voc|Vmp|strings|MPPT/);
+  assert.match(engine, /averageMonthlyConsumptionKwh/);
+  assert.match(engine, /availabilityConsumptionKwh/);
+  assert.match(engine, /requiredPowerKwp/);
+  assert.match(engine, /selectedKitPowerKwp/);
 });
 
 test('privacidade e exportação ficam em Segurança e exclusão em Encerramento da Conta', async () => {

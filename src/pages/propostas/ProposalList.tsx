@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Eye, Search, Trash2 } from 'lucide-react';
+import { Eye, Plus, Search, Trash2 } from 'lucide-react';
 import { proposalService } from '../../services/proposalService';
 import { Proposal } from '../../types/proposal';
 import { Button } from '../../components/ui/Button';
@@ -79,17 +79,14 @@ export function ProposalList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-brand-dark">Propostas</h1>
-        <p className="text-sm text-slate-500">Consulte e exclua propostas já existentes.</p>
-      </div>
-
-      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="font-semibold">Gerador de propostas removido</p>
-          <p className="mt-1 text-sm">O Wizard, a edição, a duplicação e os cálculos foram removidos. Os registros existentes foram preservados apenas para consulta e exclusão.</p>
+          <h1 className="text-2xl font-bold text-brand-dark">Propostas</h1>
+          <p className="text-sm text-slate-500">Dimensione um sistema com seus kits cadastrados e consulte propostas existentes.</p>
         </div>
+        <Button className="gap-2" onClick={() => navigate('/propostas/nova')}>
+          <Plus className="h-4 w-4" /> Novo dimensionamento
+        </Button>
       </div>
 
       <Card className="flex flex-col overflow-hidden">

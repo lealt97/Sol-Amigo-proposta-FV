@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,24 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Integrar cálculo de módulos ao fluxo
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          python3 .github/scripts/apply-module-sizing-flow.py
-
-          if git diff --quiet; then
-            echo "Dimensionamento de módulos já aplicado."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx tests/generation-input-only.test.ts
-            git commit -m "feat: integrar módulos e área do telhado ao fluxo"
-            git push origin HEAD:main
-          fi
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4

@@ -23,6 +23,19 @@ export interface PlatformThemePalette extends PlatformThemeSeed {
   gray700: string;
   gray800: string;
   gray900: string;
+  chartPositive: string;
+  chartNegative: string;
+  chartGrid: string;
+  chartAxis: string;
+  chartZero: string;
+  chartCursor: string;
+  chartTooltipBg: string;
+  chartTooltipBorder: string;
+  chartTooltipText: string;
+  chartTooltipMuted: string;
+  chartPanel: string;
+  chartMarker: string;
+  chartMarkerBg: string;
 }
 
 export interface PlatformThemeConfig {
@@ -160,6 +173,19 @@ export const buildPlatformTheme = (seed: Partial<PlatformThemeSeed> = {}): Platf
     gray700: isLight ? '#334155' : '#E2E8F0',
     gray800: isLight ? '#1E293B' : '#F1F5F9',
     gray900: isLight ? '#0F172A' : '#F8FAFC',
+    chartPositive: normalizedSeed.primary,
+    chartNegative: normalizedSeed.warning,
+    chartGrid: mix(normalizedSeed.background, normalizedSeed.accent, isLight ? 0.2 : 0.28),
+    chartAxis: mix(normalizedSeed.background, normalizedSeed.accent, isLight ? 0.5 : 0.62),
+    chartZero: mix(normalizedSeed.background, getReadableText(normalizedSeed.background), isLight ? 0.42 : 0.5),
+    chartCursor: mix(normalizedSeed.background, normalizedSeed.primary, isLight ? 0.1 : 0.18),
+    chartTooltipBg: mix(normalizedSeed.background, isLight ? '#FFFFFF' : '#000000', isLight ? 0.9 : 0.2),
+    chartTooltipBorder: mix(normalizedSeed.background, normalizedSeed.primary, isLight ? 0.34 : 0.44),
+    chartTooltipText: getReadableText(normalizedSeed.background),
+    chartTooltipMuted: getMutedText(normalizedSeed.background),
+    chartPanel: mix(normalizedSeed.background, normalizedSeed.primary, isLight ? 0.06 : 0.1),
+    chartMarker: normalizedSeed.accent,
+    chartMarkerBg: mix(normalizedSeed.background, normalizedSeed.accent, isLight ? 0.12 : 0.2),
   };
 
   return {
@@ -174,7 +200,7 @@ const setCssVar = (name: string, value: string) => {
 };
 
 export const applyPlatformTheme = (theme?: PlatformThemeConfig | null) => {
-  const activeTheme = theme?.palette ? theme : buildPlatformTheme(DEFAULT_PLATFORM_THEME_SEED);
+  const activeTheme = buildPlatformTheme(theme?.seed || DEFAULT_PLATFORM_THEME_SEED);
   const palette = activeTheme.palette;
 
   setCssVar('--color-brand-blue', palette.primary);
@@ -196,6 +222,19 @@ export const applyPlatformTheme = (theme?: PlatformThemeConfig | null) => {
   setCssVar('--color-gray-700', palette.gray700);
   setCssVar('--color-gray-800', palette.gray800);
   setCssVar('--color-gray-900', palette.gray900);
+  setCssVar('--color-chart-positive', palette.chartPositive);
+  setCssVar('--color-chart-negative', palette.chartNegative);
+  setCssVar('--color-chart-grid', palette.chartGrid);
+  setCssVar('--color-chart-axis', palette.chartAxis);
+  setCssVar('--color-chart-zero', palette.chartZero);
+  setCssVar('--color-chart-cursor', palette.chartCursor);
+  setCssVar('--color-chart-tooltip-bg', palette.chartTooltipBg);
+  setCssVar('--color-chart-tooltip-border', palette.chartTooltipBorder);
+  setCssVar('--color-chart-tooltip-text', palette.chartTooltipText);
+  setCssVar('--color-chart-tooltip-muted', palette.chartTooltipMuted);
+  setCssVar('--color-chart-panel', palette.chartPanel);
+  setCssVar('--color-chart-marker', palette.chartMarker);
+  setCssVar('--color-chart-marker-bg', palette.chartMarkerBg);
 
   document.documentElement.dataset.platformThemeMode = palette.mode;
 };

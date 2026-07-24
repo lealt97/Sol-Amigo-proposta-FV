@@ -266,6 +266,12 @@ export function PaybackStep({
   };
 
   const result = calculation.result;
+  const chartProjectionLastYear = result?.chartData[result.chartData.length - 1]?.year ?? 0;
+  const paybackMarkerYear = result
+    && Number.isFinite(result.paybackYears)
+    && result.paybackYears <= chartProjectionLastYear
+      ? Math.ceil(result.paybackYears)
+      : null;
 
   return (
     <section className="space-y-6">
@@ -419,10 +425,22 @@ export function PaybackStep({
             </div>
           </div>
 
-          <Card className="shadow-none">
+          <Card
+            className="shadow-none"
+            style={{
+              borderColor: 'var(--color-chart-grid, var(--color-brand-border))',
+              backgroundColor: 'var(--color-chart-panel, var(--color-brand-surface))',
+            }}
+          >
             <CardContent className="p-5">
               <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-blue/10 text-brand-blue">
+                <span
+                  className="grid h-10 w-10 place-items-center rounded-xl"
+                  style={{
+                    backgroundColor: 'var(--color-chart-marker-bg, var(--color-gray-100))',
+                    color: 'var(--color-chart-marker, var(--color-brand-light))',
+                  }}
+                >
                   <CircleDollarSign className="h-5 w-5" />
                 </span>
                 <div>
@@ -435,48 +453,107 @@ export function PaybackStep({
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={result.chartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
                     <CartesianGrid
-                      stroke="var(--color-brand-border)"
+                      stroke="var(--color-chart-grid, var(--color-brand-border))"
                       strokeDasharray="3 3"
                       vertical={false}
                     />
                     <XAxis
                       dataKey="year"
                       interval={4}
-                      stroke="var(--color-slate-500)"
-                      tick={{ fill: 'var(--color-slate-500)' }}
+                      stroke="var(--color-chart-axis, var(--color-slate-500))"
+                      tick={{ fill: 'var(--color-chart-axis, var(--color-slate-500))' }}
+                      axisLine={{ stroke: 'var(--color-chart-axis, var(--color-slate-500))' }}
+                      tickLine={{ stroke: 'var(--color-chart-axis, var(--color-slate-500))' }}
                       tickFormatter={(year) => `${year}`}
                     />
                     <YAxis
                       width={76}
-                      stroke="var(--color-slate-500)"
-                      tick={{ fill: 'var(--color-slate-500)' }}
+                      stroke="var(--color-chart-axis, var(--color-slate-500))"
+                      tick={{ fill: 'var(--color-chart-axis, var(--color-slate-500))' }}
+                      axisLine={{ stroke: 'var(--color-chart-axis, var(--color-slate-500))' }}
+                      tickLine={{ stroke: 'var(--color-chart-axis, var(--color-slate-500))' }}
                       tickFormatter={(value) => `R$ ${Math.round(Number(value) / 1000)}k`}
                     />
                     <Tooltip
-                      cursor={{ fill: 'var(--color-gray-100)' }}
+                      cursor={{ fill: 'var(--color-chart-cursor, var(--color-gray-100))' }}
                       contentStyle={{
-                        backgroundColor: 'var(--color-brand-surface)',
-                        borderColor: 'var(--color-brand-border)',
-                        color: 'var(--color-brand-dark)',
+                        backgroundColor: 'var(--color-chart-tooltip-bg, var(--color-brand-surface))',
+                        borderColor: 'var(--color-chart-tooltip-border, var(--color-brand-border))',
+                        color: 'var(--color-chart-tooltip-text, var(--color-brand-dark))',
+                        borderRadius: '12px',
+                        boxShadow: '0 12px 30px rgba(0, 0, 0, 0.24)',
                       }}
-                      labelStyle={{ color: 'var(--color-brand-dark)' }}
-                      itemStyle={{ color: 'var(--color-brand-dark)' }}
+                      labelStyle={{ color: 'var(--color-chart-tooltip-muted, var(--color-slate-500))' }}
+                      itemStyle={{ color: 'var(--color-chart-tooltip-text, var(--color-brand-dark))' }}
                       labelFormatter={(year) => `Ano ${year}`}
                       formatter={(value) => [currency.format(Number(value)), 'Saldo acumulado']}
                     />
-                    <ReferenceLine y={0} stroke="var(--color-slate-500)" />
-                    <Bar dataKey="cumulativeBalance" radius={0}>
+                    <ReferenceLine
+                      y={0}
+                      stroke="var(--color-chart-zero, var(--color-slate-500))"
+                      strokeWidth={2}
+                    />
+                    {paybackMarkerYear != null && (
+                      <ReferenceLine
+                        x={paybackMarkerYear}
+                        stroke="var(--color-chart-marker, var(--color-brand-light))"
+                        strokeDasharray="5 4"
+                        strokeWidth={2}
+                        label={{
+                          value: 'Payback',
+                          position: 'insideTopRight',
+                          fill: 'var(--color-chart-marker, var(--color-brand-light))',
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
+                      />
+                    )}
+                    <Bar
+                      dataKey="cumulativeBalance"
+                      radius={0}
+                      activeBar={{
+                        fill: 'var(--color-chart-marker, var(--color-brand-light))',
+                        stroke: 'var(--color-chart-tooltip-text, var(--color-brand-dark))',
+                        strokeWidth: 1,
+                      }}
+                    >
                       {result.chartData.map((point) => (
                         <Cell
                           key={point.year}
                           fill={point.cumulativeBalance >= 0
-                            ? 'var(--color-brand-blue)'
-                            : 'var(--color-brand-yellow)'}
+                            ? 'var(--color-chart-positive, var(--color-brand-blue))'
+                            : 'var(--color-chart-negative, var(--color-brand-yellow))'}
                         />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-slate-500">
+                <span className="inline-flex items-center gap-2">
+                  <span
+                    className="h-3 w-3 rounded-sm"
+                    style={{ backgroundColor: 'var(--color-chart-negative, var(--color-brand-yellow))' }}
+                  />
+                  Capital não recuperado
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span
+                    className="h-3 w-3 rounded-sm"
+                    style={{ backgroundColor: 'var(--color-chart-positive, var(--color-brand-blue))' }}
+                  />
+                  Retorno acumulado
+                </span>
+                {paybackMarkerYear != null && (
+                  <span className="inline-flex items-center gap-2">
+                    <span
+                      className="w-5 border-t-2 border-dashed"
+                      style={{ borderColor: 'var(--color-chart-marker, var(--color-brand-light))' }}
+                    />
+                    Marco do payback
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>

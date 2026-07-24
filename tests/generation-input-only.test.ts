@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const CALCULATOR_VIEW = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
+const CALCULATOR_ENTRY = 'src/pages/propostas/ProfessionalSizingCalculator.tsx';
 
 test('a etapa de geração adicional exibe somente o input digitável', async () => {
   const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
@@ -28,15 +29,13 @@ test('o resumo exibe a energia diária entre HSP e potência necessária', async
 });
 
 test('o resumo identifica dinamicamente o tipo de ligação na disponibilidade', async () => {
-  const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
+  const calculatorEntry = await readFile(CALCULATOR_ENTRY, 'utf8');
 
-  assert.match(calculator, /const CONNECTION_TYPE_LABELS: Record<ConnectionType, string>/);
-  assert.match(calculator, /monophase: 'Monofásica'/);
-  assert.match(calculator, /biphase: 'Bifásica'/);
-  assert.match(calculator, /triphase: 'Trifásica'/);
-  assert.match(calculator, /connectionTypeLabel: CONNECTION_TYPE_LABELS\[connectionType\]/);
-  assert.match(
-    calculator,
-    /value={`\$\{consumptionPreview\.connectionTypeLabel\} — \$\{consumptionPreview\.availabilityConsumptionKwh\} kWh`}/,
-  );
+  assert.match(calculatorEntry, /monophase: 'Monofásica — 30 kWh'/);
+  assert.match(calculatorEntry, /biphase: 'Bifásica — 50 kWh'/);
+  assert.match(calculatorEntry, /triphase: 'Trifásica — 100 kWh'/);
+  assert.match(calculatorEntry, /connectionSelect\.value/);
+  assert.match(calculatorEntry, /term\.textContent\?\.trim\(\) === 'Disponibilidade'/);
+  assert.match(calculatorEntry, /MutationObserver/);
+  assert.match(calculatorEntry, /addEventListener\('change', synchronize\)/);
 });

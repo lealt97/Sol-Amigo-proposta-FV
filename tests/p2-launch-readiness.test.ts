@@ -173,7 +173,8 @@ test('dimensionamento começa pelo cliente e oferece três modos de consumo sem 
   assert.match(calculator, /Levantamento de cargas/);
   assert.match(calculator, /Adicionar equipamento/);
   assert.match(calculator, /solarKitService\.getActiveKits\(\)/);
-  assert.match(calculator, /CRESESB\/SunData/);
+  assert.doesNotMatch(calculator, /Latitude|Longitude|CRESESB\/SunData|Fonte da irradiação/);
+  assert.match(calculator, /Geração adicional desejada/);
   assert.match(calculator, /Tipo de ligação/);
   assert.match(calculator, /Rendimento global/);
   assert.match(calculator, /Kit solar/);
@@ -182,6 +183,8 @@ test('dimensionamento começa pelo cliente e oferece três modos de consumo sem 
   assert.match(consumptionEngine, /daysPerWeek \/ 7/);
   assert.match(engine, /averageMonthlyConsumptionKwh/);
   assert.match(engine, /availabilityConsumptionKwh/);
+  assert.match(engine, /targetMonthlyGenerationKwh/);
+  assert.match(engine, /generationIncreasePercent/);
   assert.match(engine, /requiredPowerKwp/);
   assert.match(engine, /selectedKitPowerKwp/);
 });

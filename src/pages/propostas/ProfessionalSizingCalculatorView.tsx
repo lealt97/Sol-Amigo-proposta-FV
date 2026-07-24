@@ -8,7 +8,6 @@ import {
   Gauge,
   ListChecks,
   Loader2,
-  MapPin,
   PackageCheck,
   Plus,
   Trash2,
@@ -48,7 +47,7 @@ const MONTHS = [
 const STEPS = [
   { id: 'client', title: 'Cliente' },
   { id: 'consumption', title: 'Consumo' },
-  { id: 'irradiation', title: 'Irradiação e potência' },
+  { id: 'irradiation', title: 'HSP e meta de geração' },
   { id: 'kit', title: 'Kit e resultado' },
 ] as const;
 
@@ -148,11 +147,9 @@ export function ProfessionalSizingCalculator() {
   const [loadSurvey, setLoadSurvey] = useState<LoadSurveyDraft[]>([createLoadDraft()]);
   const [connectionType, setConnectionType] = useState<ConnectionType>('monophase');
 
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
   const [hspDaily, setHspDaily] = useState('');
   const [performanceRatioPercent, setPerformanceRatioPercent] = useState('80');
-  const [irradiationSource, setIrradiationSource] = useState('CRESESB/SunData');
+  const [generationIncreasePercent, setGenerationIncreasePercent] = useState('0');
 
   const [kits, setKits] = useState<SolarKit[]>([]);
   const [selectedKitId, setSelectedKitId] = useState('');
@@ -248,7 +245,8 @@ export function ProfessionalSizingCalculator() {
 
     const hsp = parseNumber(hspDaily);
     const performanceRatio = parseNumber(performanceRatioPercent);
-    if (!Number.isFinite(hsp) || !Number.isFinite(performanceRatio)) {
+    const generationIncrease = parseNumber(generationIncreasePercent);
+    if (!Number.isFinite(hsp) || !Number.isFinite(performanceRatio) || !Number.isFinite(generationIncrease)) {
       return { result: null, error: null };
     }
 
@@ -259,6 +257,7 @@ export function ProfessionalSizingCalculator() {
           connectionType,
           hspDaily: hsp,
           performanceRatioPercent: performanceRatio,
+          generationIncreasePercent: generationIncrease,
           selectedKitPowerKwp: selectedKit?.kit_power_kwp ?? null,
         }),
         error: null,
@@ -274,6 +273,7 @@ export function ProfessionalSizingCalculator() {
     consumptionResolution.monthlySeries,
     hspDaily,
     performanceRatioPercent,
+    generationIncreasePercent,
     selectedKit,
   ]);
 
@@ -317,19 +317,10 @@ export function ProfessionalSizingCalculator() {
     }
 
     if (currentStep === 2) {
-      const parsedLatitude = parseNumber(latitude);
-      const parsedLongitude = parseNumber(longitude);
       const parsedHsp = parseNumber(hspDaily);
       const parsedPerformanceRatio = parseNumber(performanceRatioPercent);
+      const parsedGenerationIncrease = parseNumber(generationIncreasePercent);
 
-      if (!Number.isFinite(parsedLatitude) || parsedLatitude < -90 || parsedLatitude > 90) {
-        toast.error('Informe uma latitude válida entre -90 e 90.');
-        return false;
-      }
-      if (!Number.isFinite(parsedLongitude) || parsedLongitude < -180 || parsedLongitude > 180) {
-        toast.error('Informe uma longitude válida entre -180 e 180.');
-        return false;
-      }
       if (!Number.isFinite(parsedHsp) || parsedHsp <= 0) {
         toast.error('Informe uma HSP diária maior que zero.');
         return false;
@@ -338,8 +329,8 @@ export function ProfessionalSizingCalculator() {
         toast.error('Informe um rendimento global entre 75% e 80%.');
         return false;
       }
-      if (!irradiationSource.trim()) {
-        toast.error('Informe a fonte utilizada para a HSP.');
+      if (!Number.isFinite(parsedGenerationIncrease) || parsedGenerationIncrease < 0 || parsedGenerationIncrease > 100) {
+        toast.error('Informe uma geração adicional entre 0% e 100%.');
         return false;
       }
     }
@@ -637,27 +628,68 @@ export function ProfessionalSizingCalculator() {
             {currentStep === 2 && (
               <section className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-bold text-brand-dark">Irradiação solar e potência necessária</h2>
+                  <h2 className="text-lg font-bold text-brand-dark">HSP, rendimento e meta de geração</h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Informe as coordenadas do local e a HSP média diária obtida em uma base oficial.
+                    Informe a HSP, o rendimento global e quanto o cliente deseja gerar além do consumo compensável.
                   </p>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Latitude" value={latitude} onChange={setLatitude} min={-90} max={90} step="0.000001" helper="Coordenada decimal do local de instalação." />
-                  <Field label="Longitude" value={longitude} onChange={setLongitude} min={-180} max={180} step="0.000001" helper="Coordenada decimal do local de instalação." />
-                  <Field label="HSP média diária" value={hspDaily} onChange={setHspDaily} suffix="h/dia" min={0.1} step="0.01" helper="Use a média diária obtida para a região e inclinação adotada." />
-                  <Field label="Rendimento global" value={performanceRatioPercent} onChange={setPerformanceRatioPercent} suffix="%" min={75} max={80} step="0.5" helper="Faixa adotada neste fluxo: 75% a 80%." />
-                  <div className="md:col-span-2">
-                    <Field type="text" label="Fonte da irradiação" value={irradiationSource} onChange={setIrradiationSource} helper="Exemplo: CRESESB/SunData." />
+                  <Field
+                    label="HSP média diária"
+                    value={hspDaily}
+                    onChange={setHspDaily}
+                    suffix="h/dia"
+                    min={0.1}
+                    step="0.01"
+                    helper="Use a HSP média diária obtida para a região do cliente."
+                  />
+                  <Field
+                    label="Rendimento global"
+                    value={performanceRatioPercent}
+                    onChange={setPerformanceRatioPercent}
+                    suffix="%"
+                    min={75}
+                    max={80}
+                    step="0.5"
+                    helper="Faixa adotada neste fluxo: 75% a 80%."
+                  />
+                </div>
+
+                <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="max-w-md flex-1">
+                      <Field
+                        label="Geração adicional desejada"
+                        value={generationIncreasePercent}
+                        onChange={setGenerationIncreasePercent}
+                        suffix="%"
+                        min={0}
+                        max={100}
+                        step="1"
+                        helper="O percentual é aplicado sobre o consumo compensável. Use 0% quando o cliente não solicitar geração adicional."
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[0, 10, 20, 30].map((percentage) => (
+                        <Button
+                          key={percentage}
+                          type="button"
+                          variant={generationIncreasePercent === String(percentage) ? 'default' : 'outline'}
+                          onClick={() => setGenerationIncreasePercent(String(percentage))}
+                        >
+                          {percentage}%
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {result && (
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <Summary label="Consumo compensável diário" value={`${number.format(result.compensableDailyConsumptionKwh)} kWh/dia`} />
-                    <Summary label="HSP adotada" value={`${number.format(parseNumber(hspDaily))} h/dia`} />
-                    <Summary label="Rendimento" value={`${number.format(result.performanceRatio * 100)}%`} />
+                    <Summary label="Consumo compensável" value={`${number.format(result.compensableMonthlyConsumptionKwh)} kWh/mês`} />
+                    <Summary label="Geração adicional" value={`${number.format(result.generationIncreasePercent)}%`} />
+                    <Summary label="Meta de geração" value={`${number.format(result.targetMonthlyGenerationKwh)} kWh/mês`} />
                     <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} highlight />
                   </div>
                 )}
@@ -740,15 +772,16 @@ export function ProfessionalSizingCalculator() {
                       <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} />
                       <Summary label="Potência do kit" value={`${number.format(selectedKit.kit_power_kwp)} kWp`} />
                       <Summary label="Geração mensal estimada" value={`${number.format(result.selectedKitEstimatedMonthlyGenerationKwh ?? 0)} kWh`} />
-                      <Summary label="Cobertura do compensável" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} highlight />
+                      <Summary label="Cobertura da meta" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} highlight />
                     </div>
 
                     <div className="rounded-xl border border-brand-border bg-brand-gray/40 p-4 text-sm text-slate-600">
                       <div className="flex items-start gap-3">
-                        <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-brand-blue" />
+                        <Gauge className="mt-0.5 h-5 w-5 shrink-0 text-brand-blue" />
                         <p>
-                          Coordenadas: <strong>{latitude}, {longitude}</strong>. HSP: <strong>{hspDaily} h/dia</strong>. Fonte: <strong>{irradiationSource}</strong>.
-                          O saldo energético mensal estimado é de <strong>{number.format(result.selectedKitEnergyBalanceKwh ?? 0)} kWh</strong>.
+                          Meta de geração: <strong>{number.format(result.targetMonthlyGenerationKwh)} kWh/mês</strong>, com <strong>{number.format(result.generationIncreasePercent)}%</strong> adicional.
+                          HSP adotada: <strong>{hspDaily} h/dia</strong> e rendimento global de <strong>{performanceRatioPercent}%</strong>.
+                          O saldo mensal estimado do kit em relação à meta é de <strong>{number.format(result.selectedKitEnergyBalanceKwh ?? 0)} kWh</strong>.
                         </p>
                       </div>
                     </div>
@@ -788,6 +821,7 @@ export function ProfessionalSizingCalculator() {
             result={result}
             selectedKit={selectedKit}
             hspDaily={hspDaily}
+            generationIncreasePercent={generationIncreasePercent}
           />
         </div>
       </div>
@@ -833,6 +867,7 @@ function SizingPreview({
   result,
   selectedKit,
   hspDaily,
+  generationIncreasePercent,
 }: {
   selectedClient: Client | null;
   consumptionPreview: {
@@ -845,6 +880,7 @@ function SizingPreview({
   result: ProfessionalSizingResult | null;
   selectedKit: SolarKit | null;
   hspDaily: string;
+  generationIncreasePercent: string;
 }) {
   return (
     <Card>
@@ -886,6 +922,8 @@ function SizingPreview({
             <PreviewRow label="Média mensal" value={`${number.format(consumptionPreview.averageMonthlyConsumptionKwh)} kWh`} />
             <PreviewRow label="Disponibilidade" value={`${consumptionPreview.availabilityConsumptionKwh} kWh`} />
             <PreviewRow label="Consumo compensável" value={`${number.format(consumptionPreview.compensableMonthlyConsumptionKwh)} kWh`} />
+            <PreviewRow label="Geração adicional" value={Number.isFinite(parseNumber(generationIncreasePercent)) ? `${number.format(parseNumber(generationIncreasePercent))}%` : '0%'} />
+            <PreviewRow label="Meta de geração" value={result ? `${number.format(result.targetMonthlyGenerationKwh)} kWh/mês` : 'Aguardando HSP'} />
             <PreviewRow label="HSP" value={Number.isFinite(parseNumber(hspDaily)) ? `${number.format(parseNumber(hspDaily))} h/dia` : 'Não informada'} />
             <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />
           </dl>

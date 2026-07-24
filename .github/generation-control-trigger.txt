@@ -1,1 +1,0 @@
-Executar simplificação da etapa de HSP e ativar controle de geração adicional.

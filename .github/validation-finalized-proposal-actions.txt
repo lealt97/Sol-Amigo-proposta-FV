@@ -1,0 +1,152 @@
+npm_ci=0
+typecheck=0
+tests=1
+build=0
+
+=== TYPECHECK ===
+
+> react-example@0.0.0 typecheck
+> tsc --noEmit
+
+
+=== TESTS ===
+  duration_ms: 2.115924
+  type: 'test'
+  ...
+# Subtest: armazena e remove a foto em caminho privado do próprio usuário
+ok 253 - armazena e remove a foto em caminho privado do próprio usuário
+  ---
+  duration_ms: 2.292419
+  type: 'test'
+  ...
+# Subtest: segurança permite desconectar outros aparelhos sem encerrar a sessão atual
+ok 254 - segurança permite desconectar outros aparelhos sem encerrar a sessão atual
+  ---
+  duration_ms: 8.337
+  type: 'test'
+  ...
+# Subtest: segurança permite encerrar todas as sessões e retornar ao login
+ok 255 - segurança permite encerrar todas as sessões e retornar ao login
+  ---
+  duration_ms: 5.533204
+  type: 'test'
+  ...
+# Subtest: controle de sessões aparece somente na aba Segurança
+ok 256 - controle de sessões aparece somente na aba Segurança
+  ---
+  duration_ms: 3.466907
+  type: 'test'
+  ...
+# Subtest: normaliza textos, números e remove bateria de kits on-grid
+ok 257 - normaliza textos, números e remove bateria de kits on-grid
+  ---
+  duration_ms: 1.302608
+  type: 'test'
+  ...
+# Subtest: preserva dados de armazenamento em kits híbridos e off-grid
+ok 258 - preserva dados de armazenamento em kits híbridos e off-grid
+  ---
+  duration_ms: 0.262999
+  type: 'test'
+  ...
+# Subtest: cadastra kit vinculado ao usuário autenticado
+ok 259 - cadastra kit vinculado ao usuário autenticado
+  ---
+  duration_ms: 0.490383
+  type: 'test'
+  ...
+# Subtest: edita o kit correto com payload normalizado
+ok 260 - edita o kit correto com payload normalizado
+  ---
+  duration_ms: 0.378429
+  type: 'test'
+  ...
+# Subtest: duplica o kit com novo nome e novo proprietário
+ok 261 - duplica o kit com novo nome e novo proprietário
+  ---
+  duration_ms: 0.349364
+  type: 'test'
+  ...
+# Subtest: altera o status e exclui somente o kit solicitado
+ok 262 - altera o status e exclui somente o kit solicitado
+  ---
+  duration_ms: 0.983011
+  type: 'test'
+  ...
+# Subtest: lista kits cadastrados e somente os ativos
+ok 263 - lista kits cadastrados e somente os ativos
+  ---
+  duration_ms: 0.394885
+  type: 'test'
+  ...
+# Subtest: recomenda o menor kit ativo e compatível que atende a potência
+ok 264 - recomenda o menor kit ativo e compatível que atende a potência
+  ---
+  duration_ms: 0.339639
+  type: 'test'
+  ...
+# Subtest: filtra kits pelos principais campos do catálogo
+ok 265 - filtra kits pelos principais campos do catálogo
+  ---
+  duration_ms: 0.484504
+  type: 'test'
+  ...
+# Subtest: cria snapshot imutável com os dados comerciais e técnicos do kit
+ok 266 - cria snapshot imutável com os dados comerciais e técnicos do kit
+  ---
+  duration_ms: 0.671986
+  type: 'test'
+  ...
+# Subtest: propaga falhas do repositório ao cadastrar e excluir
+ok 267 - propaga falhas do repositório ao cadastrar e excluir
+  ---
+  duration_ms: 0.837033
+  type: 'test'
+  ...
+# Subtest: remove casas decimais de valores técnicos com quatro ou mais dígitos
+ok 268 - remove casas decimais de valores técnicos com quatro ou mais dígitos
+  ---
+  duration_ms: 0.973635
+  type: 'test'
+  ...
+# Subtest: mantém precisão de até três casas para valores abaixo de mil
+ok 269 - mantém precisão de até três casas para valores abaixo de mil
+  ---
+  duration_ms: 0.211527
+  type: 'test'
+  ...
+# Subtest: usa marcador neutro para valores inválidos
+ok 270 - usa marcador neutro para valores inválidos
+  ---
+  duration_ms: 0.110595
+  type: 'test'
+  ...
+1..270
+# tests 270
+# suites 0
+# pass 267
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6844.21562
+
+=== BUILD ===
+
+> react-example@0.0.0 build:app
+> vite build
+
+[36mvite v6.4.3 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 2914 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m    0.41 kB[22m[1m[22m[2m │ gzip:     0.28 kB[22m
+[2mdist/[22m[2massets/[22m[35mindex-Bkkt1T1c.css  [39m[1m[2m   80.26 kB[22m[1m[22m[2m │ gzip:    13.49 kB[22m
+[2mdist/[22m[2massets/[22m[36mindex-BPJ9TgiC.js   [39m[1m[33m3,669.66 kB[39m[22m[2m │ gzip: 1,219.67 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 7.03s[39m

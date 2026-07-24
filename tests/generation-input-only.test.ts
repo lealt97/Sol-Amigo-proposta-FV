@@ -73,12 +73,12 @@ test('a quantidade de módulos e área do telhado ocupa a aba 4 separada', async
   assert.match(calculator, /if \(currentStep === 4 && !selectedKit\)/);
 });
 
-test('a foto do telhado é exibida dentro da aba 4', async () => {
+test('a foto do telhado é exibida e persistida dentro da aba 4', async () => {
   const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
 
   assert.match(calculator, /import \{ RoofPhotoUpload \} from '\.\/RoofPhotoUpload';/);
   assert.match(
     calculator,
-    /currentStep === 3[\s\S]*<RoofPhotoUpload clientId=\{selectedClient\?\.id \?\? null\} \/>[\s\S]*currentStep === 4/,
+    /currentStep === 3[\s\S]*<RoofPhotoUpload[\s\S]*clientId=\{selectedClient\?\.id \?\? null\}[\s\S]*initialStorageReference=\{roofPhotoReference\}[\s\S]*onReferenceChange=\{setRoofPhotoReference\}[\s\S]*currentStep === 4/,
   );
 });

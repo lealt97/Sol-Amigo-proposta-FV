@@ -1,24 +1,24 @@
 from pathlib import Path
-import runpy
+import re
 
 calculator = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
-script_path = Path('.github/scripts/apply-finalized-proposal-actions-v3.py')
-original = calculator.read_text(encoding='utf-8')
-old_marker = "</div>\n\n                {isLoadingClients ? ("
-normalized_marker = "</div>\n\n                 {isLoadingClients ? ("
+source = calculator.read_text(encoding='utf-8')
 
-try:
-    if old_marker not in original:
-        raise RuntimeError('Marcador de clientes não encontrado para normalização.')
+if "isEditMode ? 'Salvar alterações' : 'Concluir dimensionamento'" in source:
+    raise SystemExit(0)
 
-    calculator.write_text(original.replace(old_marker, normalized_marker, 1), encoding='utf-8')
-    runpy.run_path('.github/scripts/apply-finalized-proposal-actions-v2.py', run_name='__main__')
-except BaseException as error:
-    calculator.write_text(original, encoding='utf-8')
-    current_script = script_path.read_text(encoding='utf-8')
-    diagnostic_line = f"\n# PATCH_DIAGNOSTIC: {type(error).__name__}: {error}\n"
-    if '# PATCH_DIAGNOSTIC:' in current_script:
-        current_script = current_script.split('\n# PATCH_DIAGNOSTIC:', 1)[0].rstrip() + '\n'
-    script_path.write_text(current_script + diagnostic_line, encoding='utf-8')
+pattern = re.compile(
+    r'(onClick=\{\(\) => void completeSizing\(\)\}[\s\S]*?>\s*)'
+    r'Concluir dimensionamento'
+    r'(\s*<CheckCircle2 className="h-4 w-4" />)',
+)
+updated, count = pattern.subn(
+    r"\1{isEditMode ? 'Salvar alterações' : 'Concluir dimensionamento'}\2",
+    source,
+    count=1,
+)
 
-# PATCH_DIAGNOSTIC: RuntimeError: Marcador de clientes não encontrado para normalização.
+if count != 1:
+    raise SystemExit('Botão final do Wizard não encontrado.')
+
+calculator.write_text(updated, encoding='utf-8')

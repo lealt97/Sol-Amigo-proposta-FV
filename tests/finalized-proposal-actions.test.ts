@@ -4,23 +4,26 @@ import test from 'node:test';
 
 const APP = 'src/App.tsx';
 const LIST = 'src/pages/propostas/ProposalList.tsx';
+const ACTIONS = 'src/components/proposals/ProposalActionButtons.tsx';
 const WIZARD = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
 const SERVICE = 'src/services/proposalService.ts';
 const DRAFT_TYPE = 'src/types/proposalDraft.ts';
 
 test('proposta finalizada possui visualizar, editar, duplicar, renomear e excluir', async () => {
-  const [list, app, service] = await Promise.all([
+  const [list, actions, app, service] = await Promise.all([
     readFile(LIST, 'utf8'),
+    readFile(ACTIONS, 'utf8'),
     readFile(APP, 'utf8'),
     readFile(SERVICE, 'utf8'),
   ]);
 
   assert.match(app, /path="propostas\/:id\/editar" element=\{<ProfessionalSizingCalculator \/>\}/);
-  assert.match(list, /title="Visualizar"/);
-  assert.match(list, /title="Editar"/);
-  assert.match(list, /title="Duplicar"/);
-  assert.match(list, /title="Renomear"/);
-  assert.match(list, /title="Excluir"/);
+  assert.match(list, /<ProposalActionButtons/);
+  assert.match(actions, /title="Visualizar"/);
+  assert.match(actions, /title="Editar"/);
+  assert.match(actions, /title="Duplicar"/);
+  assert.match(actions, /title="Renomear"/);
+  assert.match(actions, /title="Excluir"/);
   assert.match(list, /proposalService\.duplicateProposal/);
   assert.match(list, /proposalService\.renameProposal/);
   assert.match(service, /async function getEditableProposalById/);
@@ -30,13 +33,13 @@ test('proposta finalizada possui visualizar, editar, duplicar, renomear e exclui
 });
 
 test('rascunho em fluxo continua limitado a continuar e excluir', async () => {
-  const list = await readFile(LIST, 'utf8');
+  const actions = await readFile(ACTIONS, 'utf8');
 
   assert.match(
-    list,
+    actions,
     /isFlowDraft \? \([\s\S]*Continuar[\s\S]*\) : \([\s\S]*title="Visualizar"[\s\S]*title="Editar"[\s\S]*title="Duplicar"[\s\S]*title="Renomear"/,
   );
-  assert.match(list, /title="Excluir"/);
+  assert.match(actions, /title="Excluir"/);
 });
 
 test('o nome da proposta é informado na etapa Cliente e persistido no fluxo', async () => {

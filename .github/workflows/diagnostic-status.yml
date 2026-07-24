@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
 
 concurrency:
@@ -24,6 +24,24 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Separar aba de módulos e área do telhado
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          python3 .github/scripts/move-module-sizing-to-step-four.py
+
+          if git diff --quiet; then
+            echo "A aba 4 já está separada."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx tests/generation-input-only.test.ts
+            git commit -m "refactor: mover módulos e telhado para aba 4"
+            git push origin HEAD:main
+          fi
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4

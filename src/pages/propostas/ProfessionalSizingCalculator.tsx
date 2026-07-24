@@ -1,1 +1,1 @@
-export { ProfessionalSizingCalculator } from './ProfessionalSizingCalculatorView';
+export { ProfessionalSizingCalculator } from './ProfessionalSizingCalculatorInputOnly';

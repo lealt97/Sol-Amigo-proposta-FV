@@ -8,8 +8,7 @@ test('calcula 17 módulos de 275 Wp para potência necessária de 4,556 kWp', ()
     modulePowerW: 275,
     moduleWidthM: 1,
     moduleHeightM: 1.65,
-    roofWidthM: 6,
-    roofHeightM: 5,
+    roofAreaM2: 30,
   });
 
   assert.equal(result.moduleQuantity, 17);
@@ -27,8 +26,7 @@ test('informa quando a área dos módulos não cabe no telhado', () => {
     modulePowerW: 275,
     moduleWidthM: 1,
     moduleHeightM: 1.65,
-    roofWidthM: 4,
-    roofHeightM: 5,
+    roofAreaM2: 20,
   });
 
   assert.equal(result.moduleQuantity, 17);
@@ -45,8 +43,7 @@ test('rejeita potência e dimensões inválidas', () => {
       modulePowerW: 0,
       moduleWidthM: 1,
       moduleHeightM: 1.65,
-      roofWidthM: 6,
-      roofHeightM: 5,
+      roofAreaM2: 30,
     }),
     /Potência do módulo/,
   );

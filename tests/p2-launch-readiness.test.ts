@@ -160,7 +160,7 @@ test('dimensionamento começa pelo cliente e oferece três modos de consumo sem 
 
   assert.doesNotMatch(app, /ProposalWizard/);
   assert.match(app, /path="propostas\/nova" element=\{<ProfessionalSizingCalculator \/>\}/);
-  assert.match(app, /path="propostas\/:id\/editar" element=\{null\}/);
+  assert.match(app, /path="propostas\/:id\/editar" element=\{<ProfessionalSizingCalculator \/>\}/);
   assert.doesNotMatch(service, /createProposal/);
   assert.doesNotMatch(service, /updateProposal/);
   assert.doesNotMatch(service, /duplicateProposal/);

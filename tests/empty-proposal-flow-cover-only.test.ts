@@ -8,7 +8,7 @@ test('rota de criação recebe a calculadora por kit e edição permanece vazia'
   const app = await read('src/App.tsx');
 
   assert.match(app, /path="propostas\/nova" element=\{<ProfessionalSizingCalculator \/>\}/);
-  assert.match(app, /path="propostas\/:id\/editar" element=\{null\}/);
+  assert.match(app, /path="propostas\/:id\/editar" element=\{<ProfessionalSizingCalculator \/>\}/);
   assert.doesNotMatch(app, /ProposalWizard/);
 });
 

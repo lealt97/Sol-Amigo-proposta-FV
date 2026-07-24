@@ -26,3 +26,17 @@ test('o resumo exibe a energia diária entre HSP e potência necessária', async
     /label="HSP"[\s\S]*label="Energia de geração"[\s\S]*label="Potência necessária"/,
   );
 });
+
+test('o resumo identifica dinamicamente o tipo de ligação na disponibilidade', async () => {
+  const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
+
+  assert.match(calculator, /const CONNECTION_TYPE_LABELS: Record<ConnectionType, string>/);
+  assert.match(calculator, /monophase: 'Monofásica'/);
+  assert.match(calculator, /biphase: 'Bifásica'/);
+  assert.match(calculator, /triphase: 'Trifásica'/);
+  assert.match(calculator, /connectionTypeLabel: CONNECTION_TYPE_LABELS\[connectionType\]/);
+  assert.match(
+    calculator,
+    /value={`\$\{consumptionPreview\.connectionTypeLabel\} — \$\{consumptionPreview\.availabilityConsumptionKwh\} kWh`}/,
+  );
+});

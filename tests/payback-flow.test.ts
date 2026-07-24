@@ -30,7 +30,7 @@ test('a etapa contém tarifa, tributos, margem editável, custos e gráfico vert
   assert.match(payback, /Configurações da Conta > Preferências Comerciais/);
   assert.match(payback, /Adicionar custo/);
   assert.match(payback, /<BarChart/);
-  assert.match(payback, /<Bar dataKey="cumulativeBalance" radius=\{0\}/);
+  assert.match(payback, /<Bar[\s\S]*dataKey="cumulativeBalance"[\s\S]*radius=\{0\}/);
   assert.match(payback, /var\(--color-brand-blue\)/);
   assert.match(payback, /var\(--color-brand-yellow\)/);
   assert.match(payback, /var\(--color-brand-border\)/);

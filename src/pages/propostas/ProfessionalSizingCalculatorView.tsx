@@ -1168,7 +1168,7 @@ export function ProfessionalSizingCalculator() {
               <section className="space-y-6">
                 <div>
                   <h2 className="text-lg font-bold text-brand-dark">Seleção do kit cadastrado</h2>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-slate-300">
                     Escolha um kit on-grid ativo. Os módulos e o inversor já pertencem ao cadastro do kit.
                   </p>
                 </div>
@@ -1186,9 +1186,10 @@ export function ProfessionalSizingCalculator() {
                     onAction={() => navigate('/kits-solares')}
                   />
                 ) : (
-                  <label className="block space-y-2">
+                  <label className="block space-y-2 rounded-xl border border-brand-light/30 bg-brand-gray/70 p-4">
                     <span className="text-sm font-semibold text-brand-dark">Kit solar</span>
                     <Select
+                      className="border-brand-light/50 bg-brand-gray text-brand-dark shadow-inner focus-visible:ring-brand-light"
                       value={selectedKitId}
                       onChange={(event) => {
                         setSelectedKitId(event.target.value);
@@ -1208,9 +1209,9 @@ export function ProfessionalSizingCalculator() {
                 {selectedKit && result && (
                   <>
                     <div className="grid gap-4 md:grid-cols-2">
-                      <Card className="shadow-none">
+                      <Card className="border-brand-light/30 bg-brand-gray/70 shadow-none">
                         <CardContent className="p-5">
-                          <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Kit selecionado</p>
+                          <p className="text-xs font-bold uppercase tracking-wider text-brand-light">Kit selecionado</p>
                           <h3 className="mt-2 text-lg font-bold text-brand-dark">{selectedKit.name}</h3>
                           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                             <Detail label="Potência do kit" value={`${number.format(selectedKit.kit_power_kwp)} kWp`} />
@@ -1222,19 +1223,19 @@ export function ProfessionalSizingCalculator() {
                         </CardContent>
                       </Card>
 
-                      <Card className={`shadow-none ${result.selectedKitIsAdequate ? 'border-emerald-200 bg-emerald-50/50' : 'border-amber-200 bg-amber-50/60'}`}>
+                      <Card className={`shadow-none ${result.selectedKitIsAdequate ? 'border-emerald-400/50 bg-emerald-500/10' : 'border-amber-400/50 bg-amber-500/10'}`}>
                         <CardContent className="p-5">
                           <div className="flex items-start gap-3">
                             {result.selectedKitIsAdequate ? (
-                              <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
+                              <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-300" />
                             ) : (
-                              <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-amber-600" />
+                              <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-amber-300" />
                             )}
                             <div>
                               <p className="font-bold text-brand-dark">
                                 {result.selectedKitIsAdequate ? 'Kit atende à potência calculada' : 'Kit abaixo da potência calculada'}
                               </p>
-                              <p className="mt-1 text-sm leading-6 text-slate-600">
+                              <p className="mt-1 text-sm leading-6 text-slate-200">
                                 Necessário: {number.format(result.requiredPowerKwp)} kWp. Selecionado: {number.format(selectedKit.kit_power_kwp)} kWp.
                               </p>
                             </div>
@@ -1246,23 +1247,23 @@ export function ProfessionalSizingCalculator() {
                     {selectedKitOversizing ? (
                       <div className={`rounded-xl border p-5 ${
                         selectedKitOversizing.status === 'reference'
-                          ? 'border-emerald-200 bg-emerald-50/60'
+                          ? 'border-emerald-400/50 bg-emerald-500/10'
                           : selectedKitOversizing.status === 'above_reference'
-                            ? 'border-amber-200 bg-amber-50/70'
-                            : 'border-brand-blue/20 bg-brand-blue/5'
+                            ? 'border-amber-400/50 bg-amber-500/10'
+                            : 'border-brand-light/30 bg-brand-blue/10'
                       }`}>
                         <div className="flex items-start gap-3">
                           {selectedKitOversizing.status === 'reference' ? (
-                            <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
+                            <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-300" />
                           ) : selectedKitOversizing.status === 'above_reference' ? (
-                            <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-amber-600" />
+                            <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-amber-300" />
                           ) : (
-                            <Gauge className="mt-0.5 h-6 w-6 shrink-0 text-brand-blue" />
+                            <Gauge className="mt-0.5 h-6 w-6 shrink-0 text-brand-light" />
                           )}
                           <div className="min-w-0">
-                            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Oversizing DC/AC</p>
+                            <p className="text-xs font-bold uppercase tracking-wider text-brand-light">Oversizing DC/AC</p>
                             <h3 className="mt-1 text-lg font-bold text-brand-dark">{selectedKitOversizing.statusLabel}</h3>
-                            <p className="mt-1 text-sm leading-6 text-slate-600">{selectedKitOversizing.guidance}</p>
+                            <p className="mt-1 text-sm leading-6 text-slate-200">{selectedKitOversizing.guidance}</p>
                           </div>
                         </div>
                         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1273,7 +1274,7 @@ export function ProfessionalSizingCalculator() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-5 text-amber-800">
+                      <div className="flex items-start gap-3 rounded-xl border border-amber-400/50 bg-amber-500/10 p-5 text-amber-100">
                         <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0" />
                         <div>
                           <p className="font-bold">Potência AC do inversor não informada</p>
@@ -1289,9 +1290,9 @@ export function ProfessionalSizingCalculator() {
                       <Summary label="Cobertura da meta" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} highlight />
                     </div>
 
-                    <div className="rounded-xl border border-brand-border bg-brand-gray/40 p-4 text-sm text-slate-600">
+                    <div className="rounded-xl border border-brand-light/20 bg-brand-gray/70 p-4 text-sm text-slate-200">
                       <div className="flex items-start gap-3">
-                        <Gauge className="mt-0.5 h-5 w-5 shrink-0 text-brand-blue" />
+                        <Gauge className="mt-0.5 h-5 w-5 shrink-0 text-brand-light" />
                         <p>
                           Meta de geração: <strong>{number.format(result.targetMonthlyGenerationKwh)} kWh/mês</strong>, com <strong>{number.format(result.generationIncreasePercent)}%</strong> adicional.
                           HSP adotada: <strong>{hspDaily} h/dia</strong> e rendimento global de <strong>{performanceRatioPercent}%</strong>.
@@ -1563,8 +1564,8 @@ function SizingPreview({
             <PreviewRow label="Cobertura" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} />
             <div className={`rounded-lg border p-3 text-sm font-semibold ${
               result.selectedKitIsAdequate
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-amber-200 bg-amber-50 text-amber-800'
+                ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-100'
+                : 'border-amber-400/50 bg-amber-500/10 text-amber-100'
             }`}>
               {result.selectedKitIsAdequate ? 'Kit compatível com a potência calculada.' : 'Kit abaixo da potência calculada.'}
             </div>

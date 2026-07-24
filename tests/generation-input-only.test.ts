@@ -15,3 +15,14 @@ test('a etapa de geração adicional exibe somente o input digitável', async ()
   assert.doesNotMatch(calculator, /\[0, 10, 20, 30\]/);
   assert.doesNotMatch(calculator, /setGenerationIncreasePercent\(String\(percentage\)\)/);
 });
+
+test('o resumo exibe a energia diária entre HSP e potência necessária', async () => {
+  const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
+
+  assert.match(calculator, /label="Energia de geração"/);
+  assert.match(calculator, /result\.targetDailyGenerationKwh\.toLocaleString/);
+  assert.match(
+    calculator,
+    /label="HSP"[\s\S]*label="Energia de geração"[\s\S]*label="Potência necessária"/,
+  );
+});

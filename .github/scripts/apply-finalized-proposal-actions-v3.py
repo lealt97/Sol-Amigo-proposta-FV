@@ -21,4 +21,4 @@ except BaseException as error:
         current_script = current_script.split('\n# PATCH_DIAGNOSTIC:', 1)[0].rstrip() + '\n'
     script_path.write_text(current_script + diagnostic_line, encoding='utf-8')
 
-# PATCH_DIAGNOSTIC: SystemExit: Marcador não encontrado: botão final
+# PATCH_DIAGNOSTIC: RuntimeError: Marcador de clientes não encontrado para normalização.

@@ -1,31 +1,19 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Edit, Mail, MapPin, Phone, Zap } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Copy,
-  Edit,
-  Eye,
-  FilePenLine,
-  Mail,
-  MapPin,
-  Pencil,
-  Phone,
-  Trash2,
-  Zap,
-} from 'lucide-react';
 import { toast } from 'sonner';
-import { clientService } from '../../services/clientService';
-import { proposalService } from '../../services/proposalService';
-import { supabase } from '../../lib/supabase/client';
-import { getProposalContinuePath, getProposalEditPath, isActiveProposalFlowDraft } from '../../lib/proposals/flow';
-import { Client } from '../../types/client';
-import type { Proposal } from '../../types/proposal';
+import { ProposalActionButtons } from '../../components/proposals/ProposalActionButtons';
+import { RenameProposalModal } from '../../components/proposals/RenameProposalModal';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
-import { formatDate } from '../../lib/utils';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
-import { RenameProposalModal } from '../../components/proposals/RenameProposalModal';
+import { getProposalStatusLabel } from '../../lib/proposals/presentation';
+import { supabase } from '../../lib/supabase/client';
+import { formatDate } from '../../lib/utils';
+import { clientService } from '../../services/clientService';
+import { proposalService } from '../../services/proposalService';
+import { Client } from '../../types/client';
+import type { Proposal } from '../../types/proposal';
 
 type ClientProposal = Pick<Proposal,
   | 'id'
@@ -37,11 +25,6 @@ type ClientProposal = Pick<Proposal,
   | 'flow_state'
   | 'flow_completed'
 >;
-
-const statusLabel = (status: string) => ({
-  draft: 'Rascunho', pending: 'Pendente', sent: 'Enviada', viewed: 'Visualizada',
-  accepted: 'Aprovada', approved: 'Aprovada', rejected: 'Recusada', expired: 'Expirada',
-}[status] || status);
 
 export function ClientDetails() {
   const { id } = useParams<{ id: string }>();
@@ -157,7 +140,9 @@ export function ClientDetails() {
             <p className="mt-1 text-sm text-slate-500">{client.document || 'Documento não informado'}</p>
           </div>
         </div>
-        <Button variant="outline" className="gap-2" onClick={() => navigate(`/clientes/${client.id}/editar`)}><Edit className="h-4 w-4" />Editar cliente</Button>
+        <Button variant="outline" className="gap-2" onClick={() => navigate(`/clientes/${client.id}/editar`)}>
+          <Edit className="h-4 w-4" /> Editar cliente
+        </Button>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
@@ -174,7 +159,12 @@ export function ClientDetails() {
             <CardHeader><CardTitle className="text-lg">Endereço</CardTitle></CardHeader>
             <CardContent className="flex gap-3 text-sm text-slate-500">
               <MapPin className="h-5 w-5 shrink-0" />
-              <p>{client.address ? `${client.address}, ${client.number || 'S/N'}` : 'Não informado'}<br />{[client.neighborhood, client.city, client.state].filter(Boolean).join(', ')}{client.cep ? ` - ${client.cep}` : ''}</p>
+              <p>
+                {client.address ? `${client.address}, ${client.number || 'S/N'}` : 'Não informado'}
+                <br />
+                {[client.neighborhood, client.city, client.state].filter(Boolean).join(', ')}
+                {client.cep ? ` - ${client.cep}` : ''}
+              </p>
             </CardContent>
           </Card>
 
@@ -198,35 +188,41 @@ export function ClientDetails() {
             ) : (
               <div className="overflow-x-auto rounded-xl border border-brand-border">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-brand-gray text-[10px] uppercase tracking-widest text-slate-500"><tr><th className="px-4 py-3">Proposta</th><th className="px-4 py-3">Data</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Ações</th></tr></thead>
+                  <thead className="bg-brand-gray text-[10px] uppercase tracking-widest text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Proposta</th>
+                      <th className="px-4 py-3">Data</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {proposals.map((proposal) => {
-                      const isFlowDraft = isActiveProposalFlowDraft(proposal);
-                      return (
-                        <tr key={proposal.id} className="border-t border-brand-border">
-                          <td className="px-4 py-3"><p className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</p><p className="text-xs text-slate-500">{proposal.code || 'Sem código'}</p></td>
-                          <td className="px-4 py-3 text-slate-500">{formatDate(proposal.updated_at || proposal.created_at)}</td>
-                          <td className="px-4 py-3"><span className="rounded-full border border-brand-border px-2 py-0.5 text-xs">{statusLabel(proposal.status)}</span></td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex justify-end gap-1">
-                              {isFlowDraft ? (
-                                <Button className="gap-2" onClick={() => navigate(getProposalContinuePath(proposal.id))}>
-                                  Continuar <ArrowRight className="h-4 w-4" />
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button variant="ghost" size="icon" title="Visualizar" onClick={() => navigate(`/propostas/${proposal.id}`)}><Eye className="h-4 w-4" /></Button>
-                                  <Button variant="ghost" size="icon" title="Editar" onClick={() => navigate(getProposalEditPath(proposal.id))}><Pencil className="h-4 w-4" /></Button>
-                                  <Button variant="ghost" size="icon" title="Duplicar" disabled={duplicatingProposalId === proposal.id} onClick={() => void duplicateProposal(proposal)}><Copy className={`h-4 w-4 ${duplicatingProposalId === proposal.id ? 'animate-pulse' : ''}`} /></Button>
-                                  <Button variant="ghost" size="icon" title="Renomear" onClick={() => setProposalToRename({ id: proposal.id, title: proposal.title || 'Proposta sem título' })}><FilePenLine className="h-4 w-4" /></Button>
-                                </>
-                              )}
-                              <Button variant="ghost" size="icon" className="text-red-500" title="Excluir" onClick={() => { setProposalToDelete({ id: proposal.id, title: proposal.title }); setDeleteModalOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {proposals.map((proposal) => (
+                      <tr key={proposal.id} className="border-t border-brand-border">
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</p>
+                          <p className="text-xs text-slate-500">{proposal.code || 'Sem código'}</p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">{formatDate(proposal.updated_at || proposal.created_at)}</td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-full border border-brand-border px-2 py-0.5 text-xs">
+                            {getProposalStatusLabel(proposal.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <ProposalActionButtons
+                            proposal={proposal}
+                            isDuplicating={duplicatingProposalId === proposal.id}
+                            onDuplicate={duplicateProposal}
+                            onRename={(target) => setProposalToRename({ id: target.id, title: target.title || 'Proposta sem título' })}
+                            onDelete={(target) => {
+                              setProposalToDelete({ id: target.id, title: target.title });
+                              setDeleteModalOpen(true);
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -239,7 +235,7 @@ export function ClientDetails() {
         isOpen={Boolean(proposalToRename)}
         initialTitle={proposalToRename?.title || ''}
         isLoading={isRenaming}
-        onClose={() => setProposalToRename(null)}
+        onClose={() => { if (!isRenaming) setProposalToRename(null); }}
         onConfirm={(title) => void confirmRenameProposal(title)}
       />
 

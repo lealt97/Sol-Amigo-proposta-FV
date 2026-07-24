@@ -1,6 +1,6 @@
 npm_ci=0
 typecheck=0
-tests=1
+tests=0
 build=0
 
 === TYPECHECK ===
@@ -10,157 +10,38 @@ build=0
 
 
 === TEST FAILURES ===
-791-  ...
-792-# Subtest: onboarding não depende mais de proposta ou cálculo
-793-ok 132 - onboarding não depende mais de proposta ou cálculo
-794-  ---
-795-  duration_ms: 2.226567
-796-  type: 'test'
-797-  ...
-798-# Subtest: dimensionamento começa pelo cliente e oferece três modos de consumo sem reativar mutações antigas
-799:not ok 133 - dimensionamento começa pelo cliente e oferece três modos de consumo sem reativar mutações antigas
-800-  ---
-801-  duration_ms: 14.780713
-802-  type: 'test'
-803-  location: '/home/runner/work/Sol-Amigo-PRO/Sol-Amigo-PRO/tests/p2-launch-readiness.test.ts:1:6646'
-804-  failureType: 'testCodeFailure'
-805-  error: |-
-806-    The input was expected to not match the regular expression /createProposal/. Input:
-807-    
-808-    "import { supabase } from '../lib/supabase/client';\n" +
-809-      "import { isActiveProposalFlowDraft } from '../lib/proposals/flow';\n" +
-810-      "import { Proposal } from '../types/proposal';\n" +
-811-      "import { isProposalDraftState, type ProposalDraftState } from '../types/proposalDraft';\n" +
-812-      '\n' +
-813-      "const profileSelect = 'company_name, logo_url, seller_name, seller_phone, seller_email, seller_signature_url, website, company_email, default_validity_days, default_margin_percentage';\n" +
-814-      "const clientSelect = 'name, document, email, phone, city, state';\n" +
-815-      '\n' +
-816-      'const buildSecurePdfUrl = (publicToken?: string | null) => {\n' +
-817-      '  if (!publicToken) return null;\n' +
-818-      "  const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\\/$/, '');\n" +
-819-      '  if (!supabaseUrl) return null;\n' +
-820-      '  return `${supabaseUrl}/functions/v1/public-proposal-pdf?token=${encodeURIComponent(publicToken)}`;\n' +
-821-      '};\n' +
-822-      '\n' +
-823-      'export type ProposalFlowSummary = Partial<Pick<Proposal,\n' +
-824-      "  | 'title'\n" +
-825-      "  | 'consumption_source'\n" +
-826-      "  | 'history'\n" +
-827-      "  | 'monthly_consumption_kwh'\n" +
-828-      "  | 'estimated_daily_consumption'\n" +
-829-      "  | 'energy_tariff'\n" +
---
-1978-  ...
-1979-# Subtest: identifica somente rascunhos ativos do fluxo e limita a etapa salva
-1980-ok 222 - identifica somente rascunhos ativos do fluxo e limita a etapa salva
-1981-  ---
-1982-  duration_ms: 1.168712
-1983-  type: 'test'
-1984-  ...
-1985-# Subtest: o fluxo possui rota de continuação e salva antes de avançar
-1986:not ok 223 - o fluxo possui rota de continuação e salva antes de avançar
-1987-  ---
-1988-  duration_ms: 15.872737
-1989-  type: 'test'
-1990-  location: '/home/runner/work/Sol-Amigo-PRO/Sol-Amigo-PRO/tests/proposal-draft-flow.test.ts:1:1171'
-1991-  failureType: 'testCodeFailure'
-1992-  error: |-
-1993-    The input did not match the regular expression /hydrateProposalDraft\(proposal\.flow_state\)/. Input:
-1994-    
-1995-    "import { useEffect, useMemo, useState } from 'react';\n" +
-1996-      'import {\n' +
-1997-      '  AlertTriangle,\n' +
-1998-      '  ArrowLeft,\n' +
-1999-      '  ArrowRight,\n' +
-2000-      '  CalendarDays,\n' +
-2001-      '  CheckCircle2,\n' +
-2002-      '  Gauge,\n' +
-2003-      '  ListChecks,\n' +
-2004-      '  Loader2,\n' +
-2005-      '  PackageCheck,\n' +
-2006-      '  Plus,\n' +
-2007-      '  Trash2,\n' +
-2008-      '  UserRound,\n' +
-2009-      "} from 'lucide-react';\n" +
-2010-      "import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';\n" +
-2011-      "import { toast } from 'sonner';\n" +
-2012-      "import { Button } from '../../components/ui/Button';\n" +
-2013-      "import { useAuth } from '../../contexts/AuthContext';\n" +
-2014-      "import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';\n" +
-2015-      "import { Input } from '../../components/ui/Input';\n" +
-2016-      "import { Select } from '../../components/ui/Select';\n" +
---
-3836-  ...
-3837-# Subtest: não cria uma segunda proposta ativa para o mesmo cliente
-3838-ok 225 - não cria uma segunda proposta ativa para o mesmo cliente
-3839-  ---
-3840-  duration_ms: 3.41734
-3841-  type: 'test'
-3842-  ...
-3843-# Subtest: rascunho em fluxo oferece somente continuar e excluir na listagem
-3844:not ok 226 - rascunho em fluxo oferece somente continuar e excluir na listagem
-3845-  ---
-3846-  duration_ms: 2.685123
-3847-  type: 'test'
-3848-  location: '/home/runner/work/Sol-Amigo-PRO/Sol-Amigo-PRO/tests/proposal-draft-flow.test.ts:1:3472'
-3849-  failureType: 'testCodeFailure'
-3850-  error: |-
-3851-    The input was expected to not match the regular expression /Duplicar/. Input:
-3852-    
-3853-    "import { useEffect, useState } from 'react';\n" +
-3854-      "import { toast } from 'sonner';\n" +
-3855-      "import { useNavigate } from 'react-router-dom';\n" +
-3856-      "import { ArrowRight, Copy, Eye, FilePenLine, Pencil, Plus, Search, Trash2 } from 'lucide-react';\n" +
-3857-      "import { proposalService } from '../../services/proposalService';\n" +
-3858-      "import { Proposal } from '../../types/proposal';\n" +
-3859-      "import { Button } from '../../components/ui/Button';\n" +
-3860-      "import { Input } from '../../components/ui/Input';\n" +
-3861-      "import { Card } from '../../components/ui/Card';\n" +
-3862-      "import { Select } from '../../components/ui/Select';\n" +
-3863-      "import { formatDate } from '../../lib/utils';\n" +
-3864-      "import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';\n" +
-3865-      "import { RenameProposalModal } from '../../components/proposals/RenameProposalModal';\n" +
-3866-      "import { getProposalContinuePath, getProposalEditPath, isActiveProposalFlowDraft } from '../../lib/proposals/flow';\n" +
-3867-      '\n' +
-3868-      'export function ProposalList() {\n' +
-3869-      '  const [proposals, setProposals] = useState<Proposal[]>([]);\n' +
-3870-      '  const [filteredProposals, setFilteredProposals] = useState<Proposal[]>([]);\n' +
-3871-      '  const [isLoading, setIsLoading] = useState(true);\n' +
-3872-      '  const [error, setError] = useState<string | null>(null);\n' +
-3873-      "  const [searchTerm, setSearchTerm] = useState('');\n" +
-3874-      "  const [statusFilter, setStatusFilter] = useState('');\n" +
 
 === TEST SUMMARY ===
-  duration_ms: 1.234655
+  duration_ms: 0.851503
   type: 'test'
   ...
 # Subtest: remove casas decimais de valores técnicos com quatro ou mais dígitos
 ok 268 - remove casas decimais de valores técnicos com quatro ou mais dígitos
   ---
-  duration_ms: 1.049349
+  duration_ms: 1.343878
   type: 'test'
   ...
 # Subtest: mantém precisão de até três casas para valores abaixo de mil
 ok 269 - mantém precisão de até três casas para valores abaixo de mil
   ---
-  duration_ms: 0.293127
+  duration_ms: 0.264522
   type: 'test'
   ...
 # Subtest: usa marcador neutro para valores inválidos
 ok 270 - usa marcador neutro para valores inválidos
   ---
-  duration_ms: 0.170698
+  duration_ms: 0.16661
   type: 'test'
   ...
 1..270
 # tests 270
 # suites 0
-# pass 267
-# fail 3
+# pass 270
+# fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 6837.678695
+# duration_ms 6841.336013
 
 === BUILD ===
 
@@ -180,4 +61,4 @@ computing gzip size...
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
-[32m✓ built in 6.83s[39m
+[32m✓ built in 6.57s[39m

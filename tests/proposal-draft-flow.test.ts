@@ -33,7 +33,7 @@ test('o fluxo possui rota de continuação e salva antes de avançar', async () 
 
   assert.match(app, /path="propostas\/:id\/continuar" element=\{<ProfessionalSizingCalculator \/>\}/);
   assert.match(calculator, /proposalService\.getFlowDraftById\(draftIdFromRoute\)/);
-  assert.match(calculator, /hydrateProposalDraft\(proposal\.flow_state\)/);
+  assert.match(calculator, /hydrateProposalDraft\(proposal\.flow_state, proposal\.title \|\| '', isEditMode\)/);
   assert.match(calculator, /const goNext = async \(\) =>/);
   assert.match(calculator, /await persistDraftStep\(nextStep\)[\s\S]*setCurrentStep\(nextStep\)/);
   assert.match(calculator, /proposalService\.createOrResumeFlowDraft/);
@@ -82,10 +82,8 @@ test('rascunho em fluxo oferece somente continuar e excluir na listagem', async 
   ]);
 
   assert.match(list, /const isFlowDraft = isActiveProposalFlowDraft\(proposal\)/);
-  assert.match(list, /isFlowDraft \? \([\s\S]*Continuar[\s\S]*\) : \([\s\S]*title="Visualizar"/);
+  assert.match(list, /isFlowDraft \? \([\s\S]*Continuar[\s\S]*\) : \([\s\S]*title="Visualizar"[\s\S]*title="Editar"[\s\S]*title="Duplicar"[\s\S]*title="Renomear"/);
   assert.match(list, /title="Excluir"/);
-  assert.doesNotMatch(list, /Duplicar/);
-  assert.doesNotMatch(list, /Editar/);
   assert.match(list, /statusFilter === 'pending_like'[\s\S]*proposal\.status === 'pending'/);
   assert.match(details, /if \(isActiveProposalFlowDraft\(proposal\)\)[\s\S]*<Navigate to=\{getProposalContinuePath\(proposal\.id\)\} replace/);
 });

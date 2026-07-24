@@ -148,7 +148,7 @@ test('onboarding não depende mais de proposta ou cálculo', async () => {
   assert.ok(app.includes('<Route path="/primeiros-passos" element={<FirstUseRoute />} />'));
 });
 
-test('dimensionamento começa pelo cliente e oferece três modos de consumo sem reativar mutações antigas', async () => {
+test('dimensionamento começa pelo cliente, oferece três modos de consumo e persiste propostas com segurança', async () => {
   const [app, service, list, calculator, engine, consumptionEngine] = await Promise.all([
     read(APP),
     read(PROPOSAL_SERVICE),
@@ -161,9 +161,9 @@ test('dimensionamento começa pelo cliente e oferece três modos de consumo sem 
   assert.doesNotMatch(app, /ProposalWizard/);
   assert.match(app, /path="propostas\/nova" element=\{<ProfessionalSizingCalculator \/>\}/);
   assert.match(app, /path="propostas\/:id\/editar" element=\{<ProfessionalSizingCalculator \/>\}/);
-  assert.doesNotMatch(service, /createProposal/);
-  assert.doesNotMatch(service, /updateProposal/);
-  assert.doesNotMatch(service, /duplicateProposal/);
+  assert.match(service, /createOrResumeFlowDraft/);
+  assert.match(service, /saveCompletedProposal/);
+  assert.match(service, /duplicateProposal/);
   assert.match(list, /Novo dimensionamento/);
   assert.match(calculator, /clientService\.getClients\(\)/);
   assert.match(calculator, /Selecione o cliente/);

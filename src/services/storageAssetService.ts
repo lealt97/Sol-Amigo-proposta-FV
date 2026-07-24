@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase/client';
 import {
   assertPrivateRasterImage,
   createStorageReference,
+  parseStorageReference,
   resolveStorageAssetUrl,
   type StorageAssetBucket,
 } from '../lib/storage/privateAsset';
@@ -58,6 +59,19 @@ export const storageAssetService = {
 
   async uploadRoofImage(file: File, userId: string): Promise<string> {
     return uploadImage(file, 'proposals', userId, 'roof-photos');
+  },
+
+  async removeRoofImage(value: string, userId: string): Promise<void> {
+    if (!userId) throw new Error('Usuário não autenticado.');
+
+    const reference = parseStorageReference(value);
+    const allowedPrefix = `${userId}/roof-photos/`;
+    if (!reference || reference.bucket !== 'proposals' || !reference.path.startsWith(allowedPrefix)) {
+      throw new Error('Referência da foto do telhado inválida.');
+    }
+
+    const { error } = await supabase.storage.from('proposals').remove([reference.path]);
+    if (error) throw error;
   },
 
   resolveAssetUrl(value: string | null | undefined, expiresInSeconds?: number) {

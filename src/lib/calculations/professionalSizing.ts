@@ -38,6 +38,11 @@ const round = (value: number, decimals = 2) => {
   return Math.round((value + Number.EPSILON) * factor) / factor;
 };
 
+const truncate = (value: number, decimals = 2) => {
+  const factor = 10 ** decimals;
+  return Math.trunc(value * factor) / factor;
+};
+
 const assertFinite = (value: number, field: string) => {
   if (!Number.isFinite(value)) {
     throw new Error(`${field} deve ser um número válido.`);
@@ -135,7 +140,7 @@ export function calculateProfessionalSizing(
     compensableDailyConsumptionKwh: round(compensableDailyConsumptionKwh, 3),
     generationIncreasePercent: round(generationIncreasePercent),
     targetMonthlyGenerationKwh: round(targetMonthlyGenerationKwh),
-    targetDailyGenerationKwh: round(targetDailyGenerationKwh, 3),
+    targetDailyGenerationKwh: truncate(targetDailyGenerationKwh, 2),
     performanceRatio: round(performanceRatio, 4),
     requiredPowerKwp: round(requiredPowerKwp, 3),
     selectedKitPowerKwp: selectedKitPowerKwp == null ? null : round(selectedKitPowerKwp, 3),

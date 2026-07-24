@@ -35,8 +35,11 @@ test('a etapa contém tarifa, tributos, margem editável, custos e gráfico vert
   assert.match(payback, /var\(--color-brand-yellow\)/);
   assert.match(payback, /var\(--color-brand-border\)/);
   assert.match(payback, /var\(--color-brand-surface\)/);
+  assert.match(payback, /var\(--color-brand-dark\)/);
+  assert.match(payback, /var\(--color-slate-500\)/);
+  assert.match(payback, /var\(--color-gray-100\)/);
   assert.doesNotMatch(payback, /radius=\{\[5, 5, 0, 0\]\}/);
-  assert.doesNotMatch(payback, /fill=\{point\.cumulativeBalance >= 0 \? '#0076DD' : '#ef4444'\}/);
+  assert.doesNotMatch(payback, /#0076DD|#ef4444|#64748b/);
 });
 
 test('a etapa apresenta todas as classificações solicitadas', async () => {

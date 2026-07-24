@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlertTriangle, ArrowLeft, Copy, Download, FileText, Link as LinkIcon, User } from 'lucide-react';
 import { proposalService } from '../../services/proposalService';
@@ -8,9 +8,10 @@ import { Proposal } from '../../types/proposal';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { formatDate } from '../../lib/utils';
+import { getProposalContinuePath, isActiveProposalFlowDraft } from '../../lib/proposals/flow';
 
 const getStatusLabel = (status: string) => ({
-  draft: 'Pendente',
+  draft: 'Rascunho',
   pending: 'Pendente',
   sent: 'Enviada',
   viewed: 'Visualizada',
@@ -32,12 +33,12 @@ export function ProposalDetails() {
       if (!id) return;
       try {
         setIsLoading(true);
-        const [proposalData, eventData] = await Promise.all([
-          proposalService.getProposalById(id),
-          proposalEventService.getEvents(id),
-        ]);
+        const proposalData = await proposalService.getProposalById(id);
         setProposal(proposalData);
-        setEvents(eventData);
+
+        if (!isActiveProposalFlowDraft(proposalData)) {
+          setEvents(await proposalEventService.getEvents(id));
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro ao carregar detalhes da proposta');
       } finally {
@@ -67,6 +68,10 @@ export function ProposalDetails() {
         <Link to="/propostas"><Button variant="outline">Voltar para Propostas</Button></Link>
       </div>
     );
+  }
+
+  if (isActiveProposalFlowDraft(proposal)) {
+    return <Navigate to={getProposalContinuePath(proposal.id)} replace />;
   }
 
   const publicLink = proposal.public_token

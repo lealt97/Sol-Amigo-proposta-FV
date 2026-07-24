@@ -8,7 +8,7 @@ section_start = calculator.index('            {currentStep === 4')
 section_end = calculator.index('            {currentStep === 5', section_start)
 section = calculator[section_start:section_end]
 
-replacements = [
+single_replacements = [
     ('text-slate-500', 'text-slate-300'),
     ('className="block space-y-2"', 'className="block space-y-2 rounded-xl border border-brand-light/30 bg-brand-gray/70 p-4"'),
     ('<Select\n                      value={selectedKitId}', '<Select\n                      className="border-brand-light/50 bg-brand-gray text-brand-dark shadow-inner focus-visible:ring-brand-light"\n                      value={selectedKitId}'),
@@ -16,21 +16,29 @@ replacements = [
     ('text-brand-blue">Kit selecionado', 'text-brand-light">Kit selecionado'),
     ("'border-emerald-200 bg-emerald-50/50'", "'border-emerald-400/50 bg-emerald-500/10'"),
     ("'border-amber-200 bg-amber-50/60'", "'border-amber-400/50 bg-amber-500/10'"),
-    ('text-emerald-600', 'text-emerald-300'),
-    ('text-amber-600', 'text-amber-300'),
-    ('text-slate-600', 'text-slate-200'),
     ("'border-emerald-200 bg-emerald-50/60'", "'border-emerald-400/50 bg-emerald-500/10'"),
     ("'border-amber-200 bg-amber-50/70'", "'border-amber-400/50 bg-amber-500/10'"),
     ("'border-brand-blue/20 bg-brand-blue/5'", "'border-brand-light/30 bg-brand-blue/10'"),
-    ('text-brand-blue', 'text-brand-light'),
     ('border-amber-200 bg-amber-50/70 p-5 text-amber-800', 'border-amber-400/50 bg-amber-500/10 p-5 text-amber-100'),
-    ('border-brand-border bg-brand-gray/40 p-4 text-sm text-slate-200', 'border-brand-light/20 bg-brand-gray/70 p-4 text-sm text-slate-200'),
+    ('border-brand-border bg-brand-gray/40 p-4 text-sm text-slate-600', 'border-brand-light/20 bg-brand-gray/70 p-4 text-sm text-slate-200'),
 ]
 
-for old, new in replacements:
+for old, new in single_replacements:
     if old not in section:
         raise SystemExit(f'Trecho esperado não encontrado na seleção do kit: {old}')
     section = section.replace(old, new, 1)
+
+all_replacements = [
+    ('text-emerald-600', 'text-emerald-300'),
+    ('text-amber-600', 'text-amber-300'),
+    ('text-slate-600', 'text-slate-200'),
+    ('text-brand-blue', 'text-brand-light'),
+]
+
+for old, new in all_replacements:
+    if old not in section:
+        raise SystemExit(f'Classe esperada não encontrada na seleção do kit: {old}')
+    section = section.replace(old, new)
 
 calculator = calculator[:section_start] + section + calculator[section_end:]
 
@@ -75,6 +83,7 @@ test('seleção do kit usa superfícies e textos com contraste no tema escuro', 
   assert.doesNotMatch(section, /bg-emerald-50/);
   assert.doesNotMatch(section, /bg-amber-50/);
   assert.doesNotMatch(section, /text-slate-600/);
+  assert.doesNotMatch(section, /text-brand-blue/);
 });
 
 test('resumo lateral do kit também usa estados compatíveis com o tema escuro', async () => {

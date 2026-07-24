@@ -1,3 +1,4 @@
+# Execução única para aplicar a funcionalidade na main.
 name: Aplicar oversizing na calculadora
 
 on:

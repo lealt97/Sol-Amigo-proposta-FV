@@ -48,7 +48,7 @@ test('o fluxo calcula quantidade de módulos, áreas e status do telhado', async
   assert.match(calculator, /label="Potência do módulo"/);
   assert.match(calculator, /label="Largura do módulo"/);
   assert.match(calculator, /label="Altura do módulo"/);
-  assert.match(calculator, /label="Área do telhado"/);
+  assert.match(calculator, /label="Área do telhado \(opcional\)"/);
   assert.doesNotMatch(calculator, /label="Largura útil do telhado"/);
   assert.doesNotMatch(calculator, /label="Altura útil do telhado"/);
   assert.doesNotMatch(calculator, /Com 275 Wp e potência necessária de 4,556 kWp/);

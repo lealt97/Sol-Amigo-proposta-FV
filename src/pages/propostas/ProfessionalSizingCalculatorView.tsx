@@ -471,12 +471,19 @@ export function ProfessionalSizingCalculator() {
         { value: parseNumber(modulePowerW), message: 'Informe a potência do módulo em Wp.' },
         { value: parseNumber(moduleWidthM), message: 'Informe a largura do módulo em metros.' },
         { value: parseNumber(moduleHeightM), message: 'Informe a altura do módulo em metros.' },
-        { value: parseNumber(roofAreaM2), message: 'Informe a área do telhado em metros quadrados.' },
       ];
       const invalidModuleField = moduleFields.find((field) => !Number.isFinite(field.value) || field.value <= 0);
       if (invalidModuleField) {
         toast.error(invalidModuleField.message);
         return false;
+      }
+
+      if (roofAreaM2.trim()) {
+        const parsedRoofArea = parseNumber(roofAreaM2);
+        if (!Number.isFinite(parsedRoofArea) || parsedRoofArea <= 0) {
+          toast.error('Quando informada, a área do telhado deve ser maior que zero.');
+          return false;
+        }
       }
     }
 
@@ -665,22 +672,31 @@ export function ProfessionalSizingCalculator() {
   const moduleSizing = useMemo<{ result: ModuleSizingResult | null; error: string | null }>(() => {
     if (!result) return { result: null, error: null };
 
-    const values = {
+    const moduleValues = {
       modulePowerW: parseNumber(modulePowerW),
       moduleWidthM: parseNumber(moduleWidthM),
       moduleHeightM: parseNumber(moduleHeightM),
-      roofAreaM2: parseNumber(roofAreaM2),
     };
 
-    if (Object.values(values).some((value) => !Number.isFinite(value) || value <= 0)) {
+    if (Object.values(moduleValues).some((value) => !Number.isFinite(value) || value <= 0)) {
       return { result: null, error: null };
+    }
+
+    if (!roofAreaM2.trim()) {
+      return { result: null, error: null };
+    }
+
+    const parsedRoofArea = parseNumber(roofAreaM2);
+    if (!Number.isFinite(parsedRoofArea) || parsedRoofArea <= 0) {
+      return { result: null, error: 'Quando informada, a área do telhado deve ser maior que zero.' };
     }
 
     try {
       return {
         result: calculateModuleSizing({
           requiredPowerKwp: result.requiredPowerKwp,
-          ...values,
+          ...moduleValues,
+          roofAreaM2: parsedRoofArea,
         }),
         error: null,
       };
@@ -1083,7 +1099,15 @@ export function ProfessionalSizingCalculator() {
                     />
                     <Field label="Largura do módulo" value={moduleWidthM} onChange={setModuleWidthM} suffix="m" min={0.01} step="0.001" />
                     <Field label="Altura do módulo" value={moduleHeightM} onChange={setModuleHeightM} suffix="m" min={0.01} step="0.001" />
-                    <Field label="Área do telhado" value={roofAreaM2} onChange={setRoofAreaM2} suffix="m²" min={0.01} step="0.01" />
+                    <Field
+                      label="Área do telhado (opcional)"
+                      value={roofAreaM2}
+                      onChange={setRoofAreaM2}
+                      suffix="m²"
+                      min={0.01}
+                      step="0.01"
+                      helper="Preencha somente quando quiser validar se os módulos cabem na área útil disponível."
+                    />
                   </div>
 
                   {result && moduleQuantity != null && (

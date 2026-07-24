@@ -36,10 +36,11 @@ test('motor de cores cria papéis semânticos para gráficos', async () => {
 
 test('gráfico de payback consome a paleta semântica em todos os elementos', async () => {
   const source = await readFile(PAYBACK, 'utf8');
-  const start = source.indexOf('Saldo acumulado em 25 anos');
-  const end = source.indexOf('</Card>', start);
+  const titleIndex = source.indexOf('Saldo acumulado em 25 anos');
+  const start = source.lastIndexOf('<Card', titleIndex);
+  const end = source.indexOf('</Card>', titleIndex);
 
-  assert.ok(start >= 0 && end > start, 'Gráfico de payback não encontrado.');
+  assert.ok(titleIndex >= 0 && start >= 0 && end > titleIndex, 'Gráfico de payback não encontrado.');
   const chart = source.slice(start, end);
 
   for (const cssVariable of [

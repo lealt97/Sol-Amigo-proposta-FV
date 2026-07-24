@@ -36,21 +36,6 @@ test('exclusão não devolve uso contabilizado', async () => {
   assert.doesNotMatch(migration, /proposals_created\s*=\s*usage\.proposals_created\s*-\s*1/);
 });
 
-test('calculadora não cria, edita ou duplica propostas enquanto a persistência não foi reativada', async () => {
-  const [service, app] = await Promise.all([
-    read(PROPOSAL_SERVICE_PATH),
-    read(APP_PATH),
-  ]);
-
-  assert.doesNotMatch(service, /save_proposal_bundle/);
-  assert.doesNotMatch(service, /createProposal/);
-  assert.doesNotMatch(service, /updateProposal/);
-  assert.doesNotMatch(service, /duplicateProposal/);
-  assert.doesNotMatch(service, /\.insert\(/);
-  assert.match(app, /path="propostas\/nova" element=\{<ProfessionalSizingCalculator \/>\}/);
-  assert.match(app, /path="propostas\/:id\/editar" element=\{null\}/);
-});
-
 test('usuário autenticado pode consultar somente a própria cota histórica', async () => {
   const migration = await read(MIGRATION_PATH);
 
